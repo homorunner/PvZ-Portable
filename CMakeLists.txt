@@ -1,67 +1,51 @@
-cmake_minimum_required(VERSION 3.16.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.5)
 
-project(PlantsVsZombies C CXX)
+project(re-plants-vs-zombies)
 
-################################################################################
-# Global configuration types
-################################################################################
-set(CMAKE_CONFIGURATION_TYPES
-    "Debug"
-    "Release"
-    CACHE STRING "List of supported configurations." FORCE
+file(GLOB SOURCES
+	*.cpp
+	SexyAppFramework/*.cpp
+	SexyAppFramework/graphics/*.cpp
+	SexyAppFramework/imagelib/*.cpp
+	SexyAppFramework/misc/*.cpp
+	SexyAppFramework/paklib/*.cpp
+	SexyAppFramework/sound/*.cpp
+	SexyAppFramework/widget/*.cpp
+	SexyAppFramework/ogg/*.c
+	Sexy.TodLib/*.cpp
+	Lawn/*.cpp
+	Lawn/Widget/*.cpp
+	Lawn/System/*.cpp
+	ImageLib/*.cpp
+	PakLib/*.cpp
+	SexyAppFramework/LawnProject.rc
 )
 
-set(CMAKE_CXX_STANDARD 23)
+# these files are included and must not be built in the project
+list(REMOVE_ITEM SOURCES
+	${CMAKE_CURRENT_SOURCE_DIR}/Sexy.TodLib/TodDrawTriangle.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/Sexy.TodLib/TodDrawTriangleInc.cpp
+)
 
-# @Patoke todo: probably add MSVC counterparts?
-if(MSVC)
-    set(universal_compiler_flags "")
-else()
-    #set(universal_compiler_flags "-fsanitize=undefined -fsanitize-trap -pthread -fuse-ld=lld -fno-omit-frame-pointer -fstack-protector-all -fms-extensions -fdiagnostics-color=always -gdwarf-2 -O0")
-    set(universal_compiler_flags "-pthread -fuse-ld=lld -fms-extensions -march=native -fdiagnostics-color=always -O3")
+
+option(CONSOLE "Show console on Windows" ON)
+
+find_package(ZLIB REQUIRED)
+find_package(JPEG REQUIRED)
+find_package(PNG REQUIRED)
+
+add_executable(re-plants-vs-zombies ${SOURCES})
+target_include_directories(re-plants-vs-zombies PRIVATE ${PROJECT_SOURCE_DIR}/SexyAppFramework)
+target_compile_definitions(re-plants-vs-zombies PRIVATE _DEBUG)
+
+target_link_libraries(re-plants-vs-zombies jpeg png z)
+#target_link_options(re-plants-vs-zombies PRIVATE -static-libstdc++)
+
+if (WIN32)
+	target_link_libraries(re-plants-vs-zombies ws2_32 ddraw dinput8 dxguid dxerr8 user32 gdi32 winmm)
+	target_compile_definitions(re-plants-vs-zombies PRIVATE WINDOWS)
+
+	if(NOT CONSOLE)
+		target_link_options(re-plants-vs-zombies PRIVATE -mwindows)
+	endif()
 endif()
-set(universal_cxxflags "${CMAKE_CXX_FLAGS} ${universal_compiler_flags}")
-set(universal_cflags   "${CMAKE_C_FLAGS} ${universal_compiler_flags}")
-
-if(MSVC)
-    set(warn_flags "")
-else()
-    set(warn_flags "-Wall -Wextra -Werror")
-endif()
-
-set(CMAKE_CXX_FLAGS "${universal_cxxflags} ${warn_flags}")
-set(CMAKE_C_FLAGS   "${universal_cflags} ${warn_flags}")
-set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-
-set(CMAKE_RC_COMPILER_INIT windres)
-ENABLE_LANGUAGE(RC)
-
-################################################################################
-# Nuget packages function stub.
-################################################################################
-function(use_package TARGET PACKAGE VERSION)
-    message(WARNING "No implementation of use_package. Create yours. "
-                    "Package \"${PACKAGE}\" with version \"${VERSION}\" "
-                    "for target \"${TARGET}\" is ignored!")
-endfunction()
-
-################################################################################
-# Common utils
-################################################################################
-include(CMake/Utils.cmake)
-
-################################################################################
-# Additional Global Settings(add specific info there)
-################################################################################
-include(CMake/GlobalSettingsInclude.cmake OPTIONAL)
-
-################################################################################
-# Use solution folders feature
-################################################################################
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-################################################################################
-# Sub-projects
-################################################################################
-add_subdirectory(SexyAppFramework)
