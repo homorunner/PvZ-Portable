@@ -9,23 +9,23 @@ namespace Sexy
 
 class AutoCrit
 {
-	LPCRITICAL_SECTION		mCritSec;
+	pthread_mutex_t*		mCritSec;
 public:
-	AutoCrit(LPCRITICAL_SECTION theCritSec) : 
+	AutoCrit(pthread_mutex_t* theCritSec) : 
 		mCritSec(theCritSec)
-	{ 
-		EnterCriticalSection(mCritSec); 
+	{
+		pthread_mutex_trylock(mCritSec);
 	}
 
-	AutoCrit(const CritSect& theCritSect) : 
-		mCritSec((LPCRITICAL_SECTION) &theCritSect.mCriticalSection)
-	{ 
-		EnterCriticalSection(mCritSec); 
+	AutoCrit(CritSect& theCritSect) : 
+		mCritSec(&theCritSect.mCriticalSection)
+	{
+		pthread_mutex_trylock(mCritSec);
 	}
 
 	~AutoCrit()
-	{ 
-		LeaveCriticalSection(mCritSec); 
+	{
+		pthread_mutex_unlock(mCritSec);
 	}
 };
 

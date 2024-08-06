@@ -1,8 +1,6 @@
 #pragma warning( disable : 4786 )
 
 #include "CritSect.h"
-#define NOMINMAX 1
-#include <windows.h>
 
 using namespace Sexy;
 
@@ -10,12 +8,12 @@ using namespace Sexy;
 
 CritSect::CritSect(void)
 {
-	InitializeCriticalSection(&mCriticalSection);
+	pthread_mutex_init(&mCriticalSection, 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 CritSect::~CritSect(void)
 {
-	DeleteCriticalSection(&mCriticalSection);
+	pthread_mutex_destroy(&mCriticalSection);
 }
