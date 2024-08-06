@@ -31,16 +31,16 @@ static void CopyImageToTexture8888(MemoryImage *theImage, int offx, int offy, in
 	if (theImage->mColorTable == NULL)
 	{
 		long unsigned int *srcRow = theImage->GetBits() + offy * theImage->GetWidth() + offx;
-		uint32_t *dstRow = (uint32_t*)aDest;
+		uint32_t *dstRow = aDest;
 
 		for(int y=0; y<theHeight; y++)
 		{
 			long unsigned int *src = srcRow;
-			long unsigned int *dst = (long unsigned int*)dstRow;
+			uint32_t *dst = dstRow;
 			for(int x=0; x<theWidth; x++)
 				*dst++ = *src++;
 
-			if (rightPad) 
+			if (rightPad)
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
@@ -50,23 +50,21 @@ static void CopyImageToTexture8888(MemoryImage *theImage, int offx, int offy, in
 	else // palette
 	{
 		uint8_t *srcRow = (uint8_t*)theImage->mColorIndices + offy * theImage->GetWidth() + offx;
-		uint8_t *dstRow = (uint8_t*)aDest;
+		uint32_t *dstRow = aDest;
 		long unsigned int *palette = theImage->mColorTable;
 
 		for(int y=0; y<theHeight; y++)
 		{
 			uint8_t *src = srcRow;
-			uint32_t *dst = (uint32_t*)dstRow;
+			uint32_t *dst = dstRow;
 			for(int x=0; x<theWidth; x++)
-			{
 				*dst++ = palette[*src++];
-			}
 
-			if (rightPad) 
+			if (rightPad)
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
-			dstRow += theWidth*4;
+			dstRow += theWidth;
 		}
 	}
 
@@ -197,22 +195,13 @@ static void CopyImageToTexturePalette8(int theTexWidth, MemoryImage *theImage, i
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-static GLuint CreateTextureSurface(int theWidth, int theHeight, PixelFormat theFormat)
-{
-	GLuint aTexture;
-	glGenTextures(1, &aTexture);
-	return aTexture;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 static void CopyImageToTexture(GLuint& theTexture, MemoryImage *theImage, int offx, int offy, int texWidth, int texHeight, PixelFormat theFormat, bool create)
 {
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, theTexture);
-
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (gLinearFilter) ? GL_LINEAR : GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (gLinearFilter) ? GL_LINEAR : GL_NEAREST);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	int aWidth = std::min(texWidth,(theImage->GetWidth()-offx));
 	int aHeight = std::min(texHeight,(theImage->GetHeight()-offy));
@@ -240,7 +229,6 @@ static int GetClosestPowerOf2Above(int theNum)
 	int aPower2 = 1;
 	while (aPower2 < theNum)
 		aPower2<<=1;
-
 	return aPower2;
 }
 
@@ -320,6 +308,7 @@ static void GetBestTextureDimensions(int &theWidth, int &theHeight, bool isEdge,
 	if (aHeight < gMinTextureHeight)
 		aHeight = gMinTextureHeight;
 
+	/*
 	if (aWidth > aHeight)
 	{
 		while (aWidth > gMaxTextureAspectRatio*aHeight)
@@ -330,6 +319,7 @@ static void GetBestTextureDimensions(int &theWidth, int &theHeight, bool isEdge,
 		while (aHeight > gMaxTextureAspectRatio*aWidth)
 			aWidth <<= 1;
 	}
+	*/
 
 	theWidth = aWidth;
 	theHeight = aHeight;
@@ -389,67 +379,61 @@ void TextureData::CreateTextureDimensions(MemoryImage *theImage)
 {
 	int aWidth = theImage->GetWidth();
 	int aHeight = theImage->GetHeight();
-	int i;
-/**/
+	unsigned int i;
+
 	// Calculate inner piece sizes
 	mTexPieceWidth = aWidth;
 	mTexPieceHeight = aHeight;
 	bool usePow2 = true; //gTextureSizeMustBePow2 || mPixelFormat==PixelFormat_Palette8;
-	GetBestTextureDimensions(mTexPieceWidth, mTexPieceHeight,false,usePow2,mImageFlags);
+	GetBestTextureDimensions(mTexPieceWidth, mTexPieceHeight, false, usePow2, mImageFlags);
 
 	// Calculate right boundary piece sizes
-	int aRightWidth = aWidth%mTexPieceWidth;
+	int aRightWidth = aWidth % mTexPieceWidth;
 	int aRightHeight = mTexPieceHeight;
 	if (aRightWidth > 0)
-		GetBestTextureDimensions(aRightWidth, aRightHeight,true,usePow2,mImageFlags);
+		GetBestTextureDimensions(aRightWidth, aRightHeight, true, usePow2, mImageFlags);
 	else
 		aRightWidth = mTexPieceWidth;
 
 	// Calculate bottom boundary piece sizes
 	int aBottomWidth = mTexPieceWidth;
-	int aBottomHeight = aHeight%mTexPieceHeight;
+	int aBottomHeight = aHeight % mTexPieceHeight;
 	if (aBottomHeight > 0)
-		GetBestTextureDimensions(aBottomWidth, aBottomHeight,true,usePow2,mImageFlags);
+		GetBestTextureDimensions(aBottomWidth, aBottomHeight, true, usePow2, mImageFlags);
 	else
 		aBottomHeight = mTexPieceHeight;
 
 	// Calculate corner piece size
 	int aCornerWidth = aRightWidth;
 	int aCornerHeight = aBottomHeight;
-	GetBestTextureDimensions(aCornerWidth, aCornerHeight,true,usePow2,mImageFlags);
-/**/
-
-//	mTexPieceWidth = 64;
-//	mTexPieceHeight = 64;
-
+	GetBestTextureDimensions(aCornerWidth, aCornerHeight, true, usePow2, mImageFlags);
 
 	// Allocate texture array
-	mTexVecWidth = (aWidth + mTexPieceWidth - 1)/mTexPieceWidth;
-	mTexVecHeight = (aHeight + mTexPieceHeight - 1)/mTexPieceHeight;
-	mTextures.resize(mTexVecWidth*mTexVecHeight);
-	
+	mTexVecWidth = (aWidth + mTexPieceWidth - 1) / mTexPieceWidth;
+	mTexVecHeight = (aHeight + mTexPieceHeight - 1) / mTexPieceHeight;
+	mTextures.resize(mTexVecWidth * mTexVecHeight);
+
 	// Assign inner pieces
-	for(i=0; i<(int)mTextures.size(); i++)
+	for (i = 0; i < mTextures.size(); i++)
 	{
-		TextureDataPiece &aPiece = mTextures[i];
+		TextureDataPiece& aPiece = mTextures[i];
 		aPiece.mTexture = 0;
 		aPiece.mWidth = mTexPieceWidth;
 		aPiece.mHeight = mTexPieceHeight;
 	}
 
 	// Assign right pieces
-/**/
-	for(i=mTexVecWidth-1; i<(int)mTextures.size(); i+=mTexVecWidth)
+	for (i = mTexVecWidth - 1; i < mTextures.size(); i += mTexVecWidth)
 	{
-		TextureDataPiece &aPiece = mTextures[i];
+		TextureDataPiece& aPiece = mTextures[i];
 		aPiece.mWidth = aRightWidth;
 		aPiece.mHeight = aRightHeight;
 	}
 
 	// Assign bottom pieces
-	for(i=mTexVecWidth*(mTexVecHeight-1); i<(int)mTextures.size(); i++)
+	for (i = mTexVecWidth * (mTexVecHeight - 1); i < mTextures.size(); i++)
 	{
-		TextureDataPiece &aPiece = mTextures[i];
+		TextureDataPiece& aPiece = mTextures[i];
 		aPiece.mWidth = aBottomWidth;
 		aPiece.mHeight = aBottomHeight;
 	}
@@ -457,10 +441,10 @@ void TextureData::CreateTextureDimensions(MemoryImage *theImage)
 	// Assign corner piece
 	mTextures.back().mWidth = aCornerWidth;
 	mTextures.back().mHeight = aCornerHeight;
-/**/
+	/**/
 
-	mMaxTotalU = aWidth/(float)mTexPieceWidth;
-	mMaxTotalV = aHeight/(float)mTexPieceHeight;
+	mMaxTotalU = aWidth / (float)mTexPieceWidth;
+	mMaxTotalV = aHeight / (float)mTexPieceHeight;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -537,20 +521,12 @@ void TextureData::CreateTextures(MemoryImage *theImage)
 			TextureDataPiece &aPiece = mTextures[i];
 			if (createTextures)
 			{
-				aPiece.mTexture = CreateTextureSurface(aPiece.mWidth, aPiece.mHeight, aFormat);
-				/*
-				if (aPiece.mTexture==NULL) // create texture failure
-				{
-					mPixelFormat = PixelFormat_Unknown;
-					return;
-				}
-
-				if (mPalette!=NULL)
-					aPiece.mTexture->SetPalette(mPalette);
-				*/
-					
+				glGenTextures(1, &aPiece.mTexture);
+				glBindTexture(GL_TEXTURE_2D, aPiece.mTexture);
 				mTexMemSize += aPiece.mWidth*aPiece.mHeight*aFormatSize;
 			}
+			else if (aPiece.mTexture)
+				glBindTexture(GL_TEXTURE_2D, aPiece.mTexture);
 
 			CopyImageToTexture(aPiece.mTexture,theImage,x,y,aPiece.mWidth,aPiece.mHeight,aFormat, createTextures);
 		}
@@ -599,6 +575,19 @@ GLuint TextureData::GetTexture(int x, int y, int &width, int &height, float &u1,
 	v2 = (float)bottom/aPiece.mHeight;
 
 	return aPiece.mTexture;
+}
+
+static void SetLinearFilter(bool linear)
+{
+	if (gLinearFilter != linear)
+	{
+		int aFilter = (linear) ? GL_LINEAR : GL_NEAREST;
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, aFilter);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, aFilter);
+
+		gLinearFilter = linear;
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -672,19 +661,19 @@ void TextureData::Blt(float theX, float theY, const Rect& theSrcRect, const Colo
 
 			glBegin(GL_TRIANGLE_STRIP);
 				glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-				glTexCoord2f(0, 0);
+				glTexCoord2f(u1, v1);
 				glVertex2f(x, y);
 
 				glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-				glTexCoord2f(0, 1);
+				glTexCoord2f(u1, v2);
 				glVertex2f(x, y+aHeight);
 
 				glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-				glTexCoord2f(1, 0);
+				glTexCoord2f(u2, v1);
 				glVertex2f(x+aWidth, y);
 
 				glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-				glTexCoord2f(1, 1);
+				glTexCoord2f(u2, v2);
 				glVertex2f(x+aWidth, y+aHeight);
 			glEnd();
 
@@ -775,19 +764,19 @@ void TextureData::BltTransformed(const SexyMatrix3 &theTrans, const Rect& theSrc
 			{
 				glBegin(GL_TRIANGLE_STRIP);
 					glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-					glTexCoord2f(0, 0);
+					glTexCoord2f(u1, v1);
 					glVertex2f(tp[0].x, tp[0].y);
 
 					glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-					glTexCoord2f(0, 1);
+					glTexCoord2f(u1, v2);
 					glVertex2f(tp[1].x, tp[1].y);
 
 					glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-					glTexCoord2f(1, 0);
+					glTexCoord2f(u2, v1);
 					glVertex2f(tp[2].x, tp[2].y);
 
 					glColor4ub(theColor.mRed, theColor.mGreen, theColor.mBlue, theColor.mAlpha);
-					glTexCoord2f(1, 1);
+					glTexCoord2f(u2, v2);
 					glVertex2f(tp[3].x, tp[3].y);
 				glEnd();
 			}
@@ -997,8 +986,8 @@ int GLInterface::Init(bool IsWindowed)
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	gTextureSizeMustBePow2 = false;
-	gMinTextureWidth = 1;
-	gMinTextureHeight = 1;
+	gMinTextureWidth = 8;
+	gMinTextureHeight = 8;
 	gMaxTextureWidth = aMaxSize;
 	gMaxTextureHeight = aMaxSize;
 	gMaxTextureAspectRatio = 1;
@@ -1178,6 +1167,7 @@ void GLInterface::Blt(Image* theImage, float theX, float theY, const Rect& theSr
 
 	TextureData *aData = (TextureData*)aSrcMemoryImage->mD3DData;
 
+	SetLinearFilter(linearFilter);
 	aData->Blt(theX,theY,theSrcRect,theColor);
 }
 
@@ -1245,7 +1235,7 @@ void GLInterface::BltTransformed(Image* theImage, const Rect* theClipRect, const
 
 	if (!mTransformStack.empty())
 	{
-		//SetLinearFilter(mD3DDevice, true); // force linear filtering in the case of a global transform
+		SetLinearFilter(true); // force linear filtering in the case of a global transform
 		if (theX!=0 || theY!=0)
 		{
 			SexyTransform2D aTransform;
@@ -1266,7 +1256,7 @@ void GLInterface::BltTransformed(Image* theImage, const Rect* theClipRect, const
 	}
 	else
 	{
-		//SetLinearFilter(mD3DDevice, linearFilter);
+		SetLinearFilter(linearFilter);
 		aData->BltTransformed(theTransform, theSrcRect, theColor, theClipRect, theX, theY, center);
 	}
 }
@@ -1401,6 +1391,8 @@ void GLInterface::DrawTrianglesTex(const TriVertex theVertices[][3], int theNumT
 	SetDrawMode(theDrawMode);
 
 	TextureData *aData = (TextureData*)aSrcMemoryImage->mD3DData;
+
+	SetLinearFilter(blend);
 
 	unsigned int aColor = (theColor.mRed << 0) | (theColor.mGreen << 8) | (theColor.mBlue << 16) | (theColor.mAlpha << 24);
 	aData->BltTriangles(theVertices, theNumTriangles, aColor, tx, ty);
