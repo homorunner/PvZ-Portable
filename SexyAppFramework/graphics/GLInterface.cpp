@@ -1,4 +1,6 @@
+#include <SDL.h>
 #include <GL/glew.h>
+#include <GL/glext.h>
 
 #include "GLInterface.h"
 #include "GLImage.h"
@@ -7,9 +9,6 @@
 #include "misc/CritSect.h"
 #include "Graphics.h"
 #include "MemoryImage.h"
-
-#include <SDL.h>
-#include <GL/glext.h>
 
 using namespace Sexy;
 
@@ -36,9 +35,9 @@ struct GLVertex
 };
 
 
-static void CopyImageToTexture8888(MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, bool rightPad, bool bottomPad, bool create)
+static void CopyImageToTexture8888(MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, int theDestPitch, int theDestHeight, bool rightPad, bool bottomPad, bool create)
 {
-	uint32_t *aDest = new uint32_t[theWidth * theHeight*2];
+	uint32_t *aDest = new uint32_t[theDestPitch * theDestHeight];
 
 	if (theImage->mColorTable == NULL)
 	{
@@ -56,7 +55,7 @@ static void CopyImageToTexture8888(MemoryImage *theImage, int offx, int offy, in
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
-			dstRow += theWidth;
+			dstRow += theDestPitch;
 		}
 	}
 	else // palette
@@ -76,40 +75,40 @@ static void CopyImageToTexture8888(MemoryImage *theImage, int offx, int offy, in
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
-			dstRow += theWidth;
+			dstRow += theDestPitch;
 		}
 	}
 
 	if (bottomPad)
 	{
-		uint8_t *dstrow = ((uint8_t*)aDest)+(theWidth*4)*theHeight;
-		memcpy(dstrow, dstrow-(theWidth*4), (theWidth*4));
+		uint32_t *dstrow = aDest + (theDestPitch*theHeight);
+		memcpy(dstrow, dstrow-(theDestPitch*4), (theDestPitch*4));
 	}
 
 	if (create)
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, theWidth, theHeight, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, aDest);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, theDestPitch, theDestHeight, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, aDest);
 	else
-		glTexSubImage2D(GL_TEXTURE_2D, 0, offx, offy, theWidth, theHeight, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, aDest);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, offx, offy, theDestPitch, theDestHeight, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, aDest);
 
 	delete[] aDest;
 }
 
-static void CopyImageToTexture4444(MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, bool rightPad, bool bottomPad, bool create)
+static void CopyImageToTexture4444(MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, int theDestPitch, int theDestHeight, bool rightPad, bool bottomPad, bool create)
 {
 	printf("4444 %d %d %d %d\n", offx, offy, theWidth, theHeight);
 	fflush(stdout);
 
-	uint16_t *aDest = new uint16_t[theWidth * theHeight*2];
+	uint16_t *aDest = new uint16_t[theDestPitch * theDestHeight];
 
 	if (theImage->mColorTable == NULL)
 	{
 		long unsigned int *srcRow = theImage->GetBits() + offy * theImage->GetWidth() + offx;
-		char *dstRow = (char*)aDest;
+		uint16_t *dstRow = aDest;
 
 		for(int y=0; y<theHeight; y++)
 		{
 			long unsigned int *src = srcRow;
-			uint16_t *dst = (uint16_t*)dstRow;
+			uint16_t *dst = dstRow;
 			for(int x=0; x<theWidth; x++)
 			{
 				long unsigned int aPixel = *src++;
@@ -120,19 +119,19 @@ static void CopyImageToTexture4444(MemoryImage *theImage, int offx, int offy, in
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
-			dstRow += theWidth;
+			dstRow += theDestPitch;
 		}
 	}
 	else // palette
 	{
 		uint8_t *srcRow = (uint8_t*)theImage->mColorIndices + offy * theImage->GetWidth() + offx;
-		uint8_t *dstRow = (uint8_t*)aDest;
+		uint16_t *dstRow = aDest;
 		long unsigned int *palette = theImage->mColorTable;
 
 		for(int y=0; y<theHeight; y++)
 		{
 			uint8_t *src = srcRow;
-			uint16_t *dst = (uint16_t*)dstRow;
+			uint16_t *dst = dstRow;
 			for(int x=0; x<theWidth; x++)
 			{
 				long unsigned int aPixel = palette[*src++];
@@ -143,21 +142,27 @@ static void CopyImageToTexture4444(MemoryImage *theImage, int offx, int offy, in
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
-			dstRow += theWidth;
+			dstRow += theDestPitch;
 		}
 	}
 
+	if (bottomPad)
+	{
+		uint16_t *dstrow = aDest + (theDestPitch*theHeight);
+		memcpy(dstrow, dstrow-(theDestPitch*2), (theDestPitch*2));
+	}
+
 	if (create)
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, theWidth, theHeight, 0, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, aDest);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, theDestPitch, theDestHeight, 0, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, aDest);
 	else
-		glTexSubImage2D(GL_TEXTURE_2D, 0, offx, offy, theWidth, theHeight, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, aDest);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, offx, offy, theDestPitch, theDestHeight, GL_BGRA, GL_UNSIGNED_SHORT_4_4_4_4_REV, aDest);
 
 	delete[] aDest;
 }
 
-static void CopyImageToTexture565(MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, bool rightPad, bool bottomPad, bool create)
+static void CopyImageToTexture565(MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, int theDestPitch, int theDestHeight, bool rightPad, bool bottomPad, bool create)
 {
-	uint16_t *aDest = new uint16_t[theWidth * theHeight*2];
+	uint16_t *aDest = new uint16_t[theDestPitch * theDestHeight];
 
 	if (theImage->mColorTable == NULL)
 	{
@@ -167,7 +172,7 @@ static void CopyImageToTexture565(MemoryImage *theImage, int offx, int offy, int
 		for(int y=0; y<theHeight; y++)
 		{
 			long unsigned int *src = srcRow;
-			uint16_t *dst = (uint16_t*)dstRow;
+			uint16_t *dst = dstRow;
 			for(int x=0; x<theWidth; x++)
 			{
 				long unsigned int aPixel = *src++;
@@ -178,24 +183,30 @@ static void CopyImageToTexture565(MemoryImage *theImage, int offx, int offy, int
 				*dst = *(dst-1);
 
 			srcRow += theImage->GetWidth();
-			dstRow += theWidth;
+			dstRow += theDestPitch;
 		}
 	}
 	else
 	{
-		printf("565 PALETTE %d %d %d %d\n", offx, offy, theWidth, theHeight);
+		printf("565 PALETTE %d %d %d %d\n", offx, offy, theDestPitch, theDestHeight);
 		fflush(stdout);
 	}
 
+	if (bottomPad)
+	{
+		uint16_t *dstrow = aDest + (theDestPitch*theHeight);
+		memcpy(dstrow, dstrow-(theDestPitch*2), (theDestPitch*2));
+	}
+
 	if (create)
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, theWidth, theHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, aDest);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, theDestPitch, theDestHeight, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, aDest);
 	else
-		glTexSubImage2D(GL_TEXTURE_2D, 0, offx, offy, theWidth, theHeight, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, aDest);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, offx, offy, theDestPitch, theDestHeight, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, aDest);
 
 	delete[] aDest;
 }
 
-static void CopyImageToTexturePalette8(int theTexWidth, MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, bool create)
+static void CopyImageToTexturePalette8(int theTexWidth, MemoryImage *theImage, int offx, int offy, int theWidth, int theHeight, int theDestPitch, int theDestHeight, bool create)
 {
 	printf("PALETTE %d %d %d %d - %d\n", offx, offy, theWidth, theHeight, theTexWidth);
 	fflush(stdout);
@@ -225,10 +236,10 @@ static void CopyImageToTexture(GLuint& theTexture, MemoryImage *theImage, int of
 	{
 		switch (theFormat)
 		{
-			case PixelFormat_A8R8G8B8:	CopyImageToTexture8888(theImage, offx, offy, aWidth, aHeight, rightPad, bottomPad, create); break;
-			case PixelFormat_A4R4G4B4:	CopyImageToTexture4444(theImage, offx, offy, aWidth, aHeight, rightPad, bottomPad, create); break;
-			case PixelFormat_R5G6B5:	CopyImageToTexture565(theImage, offx, offy, aWidth, aHeight, rightPad, bottomPad, create); break;
-			case PixelFormat_Palette8:	CopyImageToTexturePalette8(texWidth, theImage, offx, offy, aWidth, aHeight, create); break;
+			case PixelFormat_A8R8G8B8:	CopyImageToTexture8888(theImage, offx, offy, aWidth, aHeight, texWidth, texHeight, rightPad, bottomPad, create); break;
+			case PixelFormat_A4R4G4B4:	CopyImageToTexture4444(theImage, offx, offy, aWidth, aHeight, texWidth, texHeight, rightPad, bottomPad, create); break;
+			case PixelFormat_R5G6B5:	CopyImageToTexture565(theImage, offx, offy, aWidth, aHeight, texWidth, texHeight, rightPad, bottomPad, create); break;
+			case PixelFormat_Palette8:	CopyImageToTexturePalette8(texWidth, theImage, offx, offy, aWidth, aHeight, texWidth, texHeight, create); break;
 			case PixelFormat_Unknown: break;
 		}
 	}
@@ -979,10 +990,7 @@ void TextureData::BltTransformed(const SexyMatrix3 &theTrans, const Rect& theSrc
 				aList.push_back(aVertex[2]);
 
 				DrawPolyClipped(theClipRect, aList);
-//				DrawPolyClipped(theDevice, theClipRect, aVertex+1, 3);
 			}
-
-//			D3DInterface::CheckDXError(theDevice->SetTexture(0, NULL),"SetTexture NULL");
 
 			srcX += aWidth;
 			dstX += aWidth;
