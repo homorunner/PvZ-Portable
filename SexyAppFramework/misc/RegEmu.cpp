@@ -172,3 +172,33 @@ bool regemu::RegistryWrite(const std::string& keyName, const std::string& valueN
 
 	return true;
 }
+
+bool regemu::RegistryEraseKey(const std::string& keyName)
+{
+	if (!registry.count(keyName))
+		return false;
+
+	for (auto& valuePair : registry[keyName])
+		delete[] valuePair.second.mValue;
+
+	registry.erase(keyName);
+	printf("RegEmu: Erased key '%s'\n", keyName.c_str());
+
+	SaveToFile();
+
+	return true;
+}
+
+bool regemu::RegistryEraseValue(const std::string& keyName, const std::string& valueName)
+{
+	if (!registry.count(keyName) || !registry[keyName].count(valueName))
+		return false;
+
+	delete[] registry[keyName][valueName].mValue;
+	registry[keyName].erase(valueName);
+	printf("RegEmu: Erased value '%s' from key '%s'\n", valueName.c_str(), keyName.c_str());
+
+	SaveToFile();
+
+	return true;
+}

@@ -25,6 +25,8 @@ namespace regemu
 	void SetRegFile(const std::string& fileName);
 	bool RegistryRead(const std::string& keyName, const std::string& valueName, uint32_t* type, uint8_t* value, uint32_t* length);
 	bool RegistryWrite(const std::string& keyName, const std::string& valueName, uint32_t type, const uint8_t* value, uint32_t length);
+	bool RegistryEraseKey(const std::string& keyName);
+	bool RegistryEraseValue(const std::string& keyName, const std::string& valueName);
 }
 
 #endif

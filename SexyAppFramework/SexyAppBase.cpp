@@ -1643,8 +1643,11 @@ bool SexyAppBase::RegistryEraseKey(const SexyString& _theKeyName)
 	
 	std::string aKeyName = RemoveTrailingSlash("SOFTWARE\\" + mRegKey) + "\\" + theKeyName;
 
+	/*
 	int aResult = RegDeleteKeyA(HKEY_CURRENT_USER, aKeyName.c_str());
 	if (aResult != ERROR_SUCCESS)
+	*/
+	if (!regemu::RegistryEraseKey(aKeyName));
 	{
 		if (mRecordingDemoBuffer)
 		{
@@ -1655,7 +1658,7 @@ bool SexyAppBase::RegistryEraseKey(const SexyString& _theKeyName)
 		}
 
 		return false;
-	}		
+	}
 
 	if (mRecordingDemoBuffer)
 	{
@@ -1674,7 +1677,7 @@ void SexyAppBase::RegistryEraseValue(const SexyString& _theValueName)
 	if (mRegKey.length() == 0)
 		return;
 
-	HKEY aGameKey;	
+	//HKEY aGameKey;
 	std::string aKeyName = RemoveTrailingSlash("SOFTWARE\\" + mRegKey);
 	std::string aValueName;
 
@@ -1689,12 +1692,16 @@ void SexyAppBase::RegistryEraseValue(const SexyString& _theValueName)
 		aValueName = theValueName;
 	}
 
+	/*
 	int aResult = RegOpenKeyExA(HKEY_CURRENT_USER, aKeyName.c_str(), 0, KEY_WRITE, &aGameKey);
 	if (aResult == ERROR_SUCCESS)
 	{		
 		RegDeleteValueA(aGameKey, aValueName.c_str());
 		RegCloseKey(aGameKey);
 	}
+	*/
+
+	regemu::RegistryEraseValue(aKeyName, aValueName);
 }
 
 /*
@@ -3075,6 +3082,7 @@ static int ListDemoMarkers()
     return 0; 
 }
 
+/*
 static INT_PTR CALLBACK JumpToTimeDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	(void)lParam;
@@ -3147,6 +3155,7 @@ static INT_PTR CALLBACK JumpToTimeDialogProc(HWND hwnd, UINT msg, WPARAM wParam,
 
 	return FALSE;
 }
+*/
 
 static int DemoJumpToTime()
 {
