@@ -134,6 +134,9 @@ const ulong SEXY_RAND_MAX = 0x7FFFFFFF;
 extern bool			gDebug;
 //extern HINSTANCE	gHInstance;
 
+#define printf(...) PrintF(__VA_ARGS__)
+void				PrintF(const char *text, ...);
+
 int					Rand();
 int					Rand(int range);
 float				Rand(float range);

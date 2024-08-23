@@ -10,6 +10,10 @@
 #include <dirent.h>
 #include <stdarg.h>
 
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
+
 #include "misc/PerfTimer.h"
 
 #ifdef _WIN32
@@ -22,6 +26,22 @@ static Sexy::MTRand gMTRand;
 namespace Sexy
 {
 	std::string gAppDataFolder = "";
+}
+
+void Sexy::PrintF(const char *text, ...)
+{
+	char str[1024];
+
+	va_list args;
+	va_start(args, text);
+	vsnprintf(str, sizeof(str), text, args);
+	va_end(args);
+
+#ifdef __SWITCH__
+	svcOutputDebugString(str, sizeof(str));
+#else
+	fprintf(stdout, "%s", str);
+#endif
 }
 
 int Sexy::Rand()
