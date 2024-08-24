@@ -2,6 +2,11 @@
 #include <inttypes.h>
 #include <stdarg.h>
 #include <stdexcept>
+
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
+
 #include "TodDebug.h"
 #include "TodCommon.h"
 #include "misc/Debug.h"
@@ -15,7 +20,13 @@ static char gDebugDataFolder[512];
 //0x514EA0
 void TodErrorMessageBox(const char* theMessage, const char* theTitle)
 {
+#ifdef __SWITCH__
+	ErrorApplicationConfig c;
+	errorApplicationCreate(&c, theTitle, theMessage);
+	errorApplicationShow(&c);
+#else
 	throw std::runtime_error("Error Box\n--" + std::string(theTitle) + "--\n" + theMessage);
+#endif
 }
 
 void TodTraceMemory()

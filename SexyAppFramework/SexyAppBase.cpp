@@ -10,6 +10,12 @@
 
 #include <SDL.h>
 
+#ifdef __SWITCH__
+#include <switch.h>
+#include <locale>
+#include <codecvt>
+#endif
+
 #include "SexyAppBase.h"
 //#include "misc/SEHCatcher.h"
 #include "widget/WidgetManager.h"
@@ -167,6 +173,8 @@ SexyAppBase::SexyAppBase()
 
 #ifdef __SWITCH__
 	mChangeDirTo = "sdmc:/switch/PlantsvsZombies/";
+#else
+	mChangeDirTo = "./";
 #endif
 
 	mNoDefer = false;	
@@ -2872,6 +2880,13 @@ int SexyAppBase::MsgBox(const std::string& theText, const std::string& theTitle,
 	BeginPopup();
 	//int aResult = MessageBoxA(mHWnd, theText.c_str(), theTitle.c_str(), theFlags);
 	printf("%s\n===\n%s\n", theTitle.c_str(), theText.c_str());
+
+#ifdef __SWITCH__
+	ErrorApplicationConfig c;
+	errorApplicationCreate(&c, theTitle.c_str(), theText.c_str());
+	errorApplicationShow(&c);
+#endif
+
 	EndPopup();
 
 	return 0;
@@ -2892,6 +2907,14 @@ int SexyAppBase::MsgBox(const std::wstring& theText, const std::wstring& theTitl
 	BeginPopup();
 	//int aResult = MessageBoxW(mHWnd, theText.c_str(), theTitle.c_str(), theFlags);
 	wprintf(L"%s\n===\n%s\n", theTitle.c_str(), theText.c_str());
+
+#ifdef __SWITCH__
+	std::wstring_convert<std::codecvt_utf8<wchar_t> > cv;
+	ErrorApplicationConfig c;
+	errorApplicationCreate(&c, cv.to_bytes(theTitle).c_str(), cv.to_bytes(theText).c_str());
+	errorApplicationShow(&c);
+#endif
+
 	EndPopup();
 
 	return 0;
@@ -2908,7 +2931,13 @@ void SexyAppBase::Popup(const std::string& theString)
 	BeginPopup();
 	if (!mShutdown)
 		printf("FATAL ERROR\n===\n%s\n", theString.c_str());
-		//::MessageBoxA(mHWnd, theString.c_str(), SexyStringToString(GetString("FATAL_ERROR", __S("FATAL ERROR"))).c_str(), MB_APPLMODAL | MB_ICONSTOP);
+
+#ifdef __SWITCH__
+	ErrorApplicationConfig c;
+	errorApplicationCreate(&c, "Fatal error", theString.c_str());
+	errorApplicationShow(&c);
+#endif
+
 	EndPopup();
 }
 
@@ -2923,7 +2952,14 @@ void SexyAppBase::Popup(const std::wstring& theString)
 	BeginPopup();
 	if (!mShutdown)
 		wprintf(L"FATAL ERROR\n===\n%s\n", theString.c_str());
-		//::MessageBoxW(mHWnd, theString.c_str(), SexyStringToWString(GetString("FATAL_ERROR", __S("FATAL ERROR"))).c_str(), MB_APPLMODAL | MB_ICONSTOP);
+
+#ifdef __SWITCH__
+	std::wstring_convert<std::codecvt_utf8<wchar_t> > cv;
+	ErrorApplicationConfig c;
+	errorApplicationCreate(&c, "Fatal error", cv.to_bytes(theString).c_str());
+	errorApplicationShow(&c);
+#endif
+
 	EndPopup();
 }
 
@@ -5015,10 +5051,6 @@ void SexyAppBase::Init()
 		}
 	}
 	*/
-	char aPath[512];
-	getcwd(aPath, 512);
-	strcat(aPath, "/savedata/");
-	SetAppDataFolder(aPath);
 	
 	if (!mCmdLineParsed)
 		mCmdLineParsed = true;
@@ -5033,6 +5065,11 @@ void SexyAppBase::Init()
 	// Change directory
 	if (!ChangeDirHook(mChangeDirTo.c_str()))
 		chdir(mChangeDirTo.c_str());
+
+	char aPath[512];
+	getcwd(aPath, 512);
+	strcat(aPath, "/savedata/");
+	SetAppDataFolder(aPath);
 
 	/*
 	gPakInterface->AddPakFile("main.pak");
