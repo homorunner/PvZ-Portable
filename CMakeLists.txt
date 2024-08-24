@@ -34,13 +34,15 @@ if(NINTENDO_SWITCH)
 	set(USE_EGL ON)
 	set(USE_GLES ON)
 	list(APPEND SOURCES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/graphics/platform/switch/Window.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/graphics/platform/switch/GLInterface.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch/graphics/Window.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch/graphics/GLInterface.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch/Input.cpp
 	)
 else()
 	list(APPEND SOURCES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/graphics/platform/pc/Window.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/graphics/platform/pc/GLInterfaceModern.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc/graphics/Window.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc/graphics/GLInterface.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc/Input.cpp
 	)
 endif()
 

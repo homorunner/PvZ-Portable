@@ -48,7 +48,7 @@ static void GfxEnd()
 
 	glBindVertexArray(gVao);
 	glBindBuffer(GL_ARRAY_BUFFER, gVbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex) * MAX_VERTICES, gVertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex) * gNumVertices, gVertices, GL_DYNAMIC_DRAW);
 
 	glDrawArrays(gVertexMode, 0, gNumVertices);
 
@@ -1395,7 +1395,7 @@ int GLInterface::Init(bool IsWindowed)
 		glBindVertexArray(gVao);
 
 		glBindBuffer(GL_ARRAY_BUFFER, gVbo);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex) * MAX_VERTICES, 0, GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(GLVertex) * MAX_VERTICES, 0, GL_DYNAMIC_DRAW);
 
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLVertex), 0);
 		glEnableVertexAttribArray(0);
@@ -1449,8 +1449,6 @@ int GLInterface::Init(bool IsWindowed)
 
 	SetVideoOnlyDraw(false);
 	UpdateViewport();
-
-	eglSwapInterval(mApp->mWindow, 1);
 
 	return 1;
 }

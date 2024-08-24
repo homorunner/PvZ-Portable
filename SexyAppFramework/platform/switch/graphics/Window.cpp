@@ -74,6 +74,8 @@ void SexyAppBase::MakeWindow()
 	// Connect the context to the surface
 	eglMakeCurrent(mWindow, mSurface, mSurface, mContext);
 
+	eglSwapInterval(mWindow, 1);
+
 	if (mGLInterface == NULL)
 	{
 		mGLInterface = new GLInterface(this);
