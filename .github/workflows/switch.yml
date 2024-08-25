@@ -13,7 +13,7 @@ jobs:
         shell: bash
         run: |
           source $DEVKITPRO/switchvars.sh
-          dkp-pacman -S switch-mpg123 switch-libvorbis switch-libogg
+          yes | dkp-pacman -S switch-mpg123 switch-libvorbis switch-libogg
           git clone https://github.com/OpenMPT/openmpt
           cd openmpt
           make CONFIG=gcc SHARED_LIB=0 DYNLINK=0 EXAMPLES=0 OPENMPT123=0 TEST=0 PREFIX=$PORTLIBS_PREFIX install 
