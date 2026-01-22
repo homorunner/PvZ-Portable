@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.5)
 
 project(re-plants-vs-zombies LANGUAGES C CXX ASM)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 file(GLOB SOURCES
 	*.cpp
 	SexyAppFramework/*.cpp
