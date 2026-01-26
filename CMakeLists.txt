@@ -8,27 +8,27 @@ if (CMAKE_GENERATOR MATCHES "Ninja")
 endif()
 
 file(GLOB SOURCES
-	*.cpp
-	SexyAppFramework/*.cpp
-	SexyAppFramework/graphics/*.cpp
-	SexyAppFramework/imagelib/*.cpp
-	SexyAppFramework/misc/*.cpp
-	SexyAppFramework/paklib/*.cpp
-	SexyAppFramework/sound/*.cpp
-	SexyAppFramework/widget/*.cpp
-	#SexyAppFramework/ogg/*.c
-	SexyAppFramework/fcaseopen/*.c
-	Sexy.TodLib/*.cpp
-	Lawn/*.cpp
-	Lawn/Widget/*.cpp
-	Lawn/System/*.cpp
-	#SexyAppFramework/LawnProject.rc
+	src/*.cpp
+	src/SexyAppFramework/*.cpp
+	src/SexyAppFramework/graphics/*.cpp
+	src/SexyAppFramework/imagelib/*.cpp
+	src/SexyAppFramework/misc/*.cpp
+	src/SexyAppFramework/paklib/*.cpp
+	src/SexyAppFramework/sound/*.cpp
+	src/SexyAppFramework/widget/*.cpp
+	#src/SexyAppFramework/ogg/*.c
+	src/SexyAppFramework/fcaseopen/*.c
+	src/Sexy.TodLib/*.cpp
+	src/Lawn/*.cpp
+	src/Lawn/Widget/*.cpp
+	src/Lawn/System/*.cpp
+	#src/SexyAppFramework/LawnProject.rc
 )
 
 # these files are included and must not be built in the project
 list(REMOVE_ITEM SOURCES
-	${CMAKE_CURRENT_SOURCE_DIR}/Sexy.TodLib/TodDrawTriangle.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/Sexy.TodLib/TodDrawTriangleInc.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Sexy.TodLib/TodDrawTriangle.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Sexy.TodLib/TodDrawTriangleInc.cpp
 )
 
 set(NO_GLEW OFF CACHE BOOL "Disable GLEW")
@@ -38,27 +38,27 @@ if(NINTENDO_SWITCH)
 	set(NO_GLEW ON)
 	set(VORBIS_LIB vorbisfile vorbis)
 	list(APPEND SOURCES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch/graphics/Window.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch/graphics/GLInterface.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch/Input.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/switch/graphics/Window.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/switch/graphics/GLInterface.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/switch/Input.cpp
 	)
 	list(APPEND PLAT_INCLUDES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/switch
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/switch
 	)
 elseif(NINTENDO_3DS)
 	set(NO_GLEW ON)
 	set(LOW_MEMORY ON)
 	set(DOWNSCALE_COUNT 2)
-	ctr_add_shader_library(colored ${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/3ds/graphics/colored.v.pica)
-	ctr_add_shader_library(textured ${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/3ds/graphics/textured.v.pica)
+	ctr_add_shader_library(colored ${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/3ds/graphics/colored.v.pica)
+	ctr_add_shader_library(textured ${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/3ds/graphics/textured.v.pica)
 	dkp_add_embedded_binary_library(shaders colored textured)
 	list(APPEND SOURCES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/3ds/graphics/Window.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/3ds/graphics/GLInterface.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/3ds/Input.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/3ds/graphics/Window.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/3ds/graphics/GLInterface.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/3ds/Input.cpp
 	)
 	list(APPEND PLAT_INCLUDES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/3ds
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/3ds
 	)
 else()
 	if(MSVC)
@@ -83,12 +83,12 @@ else()
 		set(MPG123_LIB ${MPG123_LIBRARY})
 	endif()
 	list(APPEND SOURCES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc/graphics/Window.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc/graphics/GLInterface.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc/Input.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/pc/graphics/Window.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/pc/graphics/GLInterface.cpp
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/pc/Input.cpp
 	)
 	list(APPEND PLAT_INCLUDES
-		${CMAKE_CURRENT_SOURCE_DIR}/SexyAppFramework/platform/pc
+		${CMAKE_CURRENT_SOURCE_DIR}/src/SexyAppFramework/platform/pc
 	)
 endif()
 
@@ -126,12 +126,13 @@ set(USE_XMP OFF CACHE BOOL "SDL Mixer X xmp")
 set(USE_OPUS OFF CACHE BOOL "SDL Mixer X opus")
 set(USE_DRFLAC OFF CACHE BOOL "SDL Mixer X flac")
 set(USE_PXTONE OFF CACHE BOOL "SDL Mixer X pxtone")
-add_subdirectory(SexyAppFramework/sound/SDL-Mixer-X)
+add_subdirectory(src/SexyAppFramework/sound/SDL-Mixer-X)
 
 add_executable(pvz-portable ${SOURCES})
 target_include_directories(pvz-portable PRIVATE
-	${PROJECT_SOURCE_DIR}/SexyAppFramework
-	${PROJECT_SOURCE_DIR}/SexyAppFramework/sound/SDL-Mixer-X/include
+	${PROJECT_SOURCE_DIR}/src
+	${PROJECT_SOURCE_DIR}/src/SexyAppFramework
+	${PROJECT_SOURCE_DIR}/src/SexyAppFramework/sound/SDL-Mixer-X/include
 	${SDL2_INCLUDE_DIRS}
 	${PLAT_INCLUDES}
 )
