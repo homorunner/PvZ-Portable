@@ -206,7 +206,7 @@ std::wstring Sexy::StringToLower(const std::wstring& theString)
 {
 	std::wstring aString;
 
-	for (unsigned i = 0; i < theString.length(); ++i)
+	for (unsigned i = 0; i < theString.length(); i++)
 		aString += tolower(theString[i]);
 
 	return aString;
@@ -214,32 +214,35 @@ std::wstring Sexy::StringToLower(const std::wstring& theString)
 
 std::wstring Sexy::StringToWString(const std::string &theString)
 {
-	std::wstring aString;
-	aString.reserve(theString.length());
-	for(size_t i = 0; i < theString.length(); ++i)
-		aString += (unsigned char)theString[i];
-	return aString;
+	try
+	{
+		std::wstring_convert<std::codecvt_utf8<wchar_t>> aConv;
+		return aConv.from_bytes(theString);
+	}
+	catch (const std::range_error&)
+	{
+		std::wstring aFallback;
+		aFallback.reserve(theString.length());
+		for (size_t i = 0; i < theString.length(); i++)
+			aFallback += (unsigned char)theString[i];
+		return aFallback;
+	}
 }
 
 std::string Sexy::WStringToString(const std::wstring &theString)
 {
-	size_t aRequiredLength = wcstombs( NULL, theString.c_str(), 0 );
-	if (aRequiredLength < 16384)
+	try
 	{
-		char aBuffer[16384];
-		wcstombs( aBuffer, theString.c_str(), 16384 );
-		return std::string(aBuffer);
+		std::wstring_convert<std::codecvt_utf8<wchar_t>> aConv;
+		return aConv.to_bytes(theString);
 	}
-	else
+	catch (const std::range_error&)
 	{
-		DBG_ASSERTE(aRequiredLength != (size_t)-1);
-		if (aRequiredLength == (size_t)-1) return "";
-
-		char* aBuffer = new char[aRequiredLength+1];
-		wcstombs( aBuffer, theString.c_str(), aRequiredLength+1 );
-		std::string aStr = aBuffer;
-		delete[] aBuffer;
-		return aStr;
+		std::string aFallback;
+		aFallback.reserve(theString.length());
+		for (auto ch : theString)
+			aFallback += (ch <= 0xFF) ? (char)ch : '?';
+		return aFallback;
 	}
 }
 
