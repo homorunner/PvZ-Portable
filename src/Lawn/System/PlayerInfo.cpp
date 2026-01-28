@@ -77,16 +77,35 @@ void PlayerInfo::SyncDetails(DataSync& theSync)
 		theSync.SyncBytes(&mPottedPlant[i], sizeof(PottedPlant));
 	}
 
-	// @Patoke: implemented
+	// Implemented by wszqkzqk with doc: https://plantsvszombies.fandom.com/wiki/User_file_format
+	// Known that achievements are stored as 20 x 16-bit values (0/1) in the original format.
 	for (int i = 0; i < 20; i++)
 	{
-		theSync.SyncBool(mEarnedAchievements[i]);
+		unsigned short aAchievementValue = mEarnedAchievements[i] ? 1 : 0;
+		theSync.SyncShort(aAchievementValue);
+		if (theSync.GetReader())
+		{
+			mEarnedAchievements[i] = (aAchievementValue != 0);
+			mShownAchievements[i] = mEarnedAchievements[i];
+		}
 	}
 
-	for (int i = 0; i < 20; i++)
+	// Zombatar is not supported: ignore any stored data on load.
+	if (theSync.GetReader())
 	{
-		theSync.SyncBool(mShownAchievements[i]);
+		mZombatarAccepted = 0;
+		mZombatarHeadCount = 0;
+		mZombatarData.clear();
+		memset(mZombatarTrailingUnknown, 0, sizeof(mZombatarTrailingUnknown));
+		mZombatarCreatedBefore = 0;
+		return;
 	}
+
+	// Write a minimal, safe layout (no Zombatars).
+	theSync.SyncByte(mZombatarAccepted);
+	theSync.SyncLong(mZombatarHeadCount);
+	theSync.SyncBytes(mZombatarTrailingUnknown, sizeof(mZombatarTrailingUnknown));
+	theSync.SyncByte(mZombatarCreatedBefore);
 }
 
 //0x469400
@@ -172,6 +191,11 @@ void PlayerInfo::Reset()
 	mNumPottedPlants = 0;
 	memset(mEarnedAchievements, 0, sizeof(mEarnedAchievements));
 	memset(mShownAchievements, 0, sizeof(mShownAchievements));
+	mZombatarAccepted = 0;
+	mZombatarHeadCount = 0;
+	mZombatarData.clear();
+	memset(mZombatarTrailingUnknown, 0, sizeof(mZombatarTrailingUnknown));
+	mZombatarCreatedBefore = 0;
 }
 
 void PlayerInfo::AddCoins(int theAmount)

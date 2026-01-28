@@ -5,6 +5,7 @@
 #define PURCHASE_COUNT_OFFSET 1000
 
 #include <ctime>
+#include <vector>
 #include "../../ConstEnums.h"
 #include "../../SexyAppFramework/Common.h"
 
@@ -75,7 +76,12 @@ public:
     int                 mNumPottedPlants;                   //+0x350
     PottedPlant         mPottedPlant[MAX_POTTED_PLANTS];    //+0x358
     bool                mEarnedAchievements[20];            //+GOTY @Patoke: 0x24
-    bool                mShownAchievements[20];             //+GOTY @Patoke: 0x38
+    bool                mShownAchievements[20];             //+GOTY
+    unsigned char       mZombatarAccepted;                  //+GOTY from @lmintlcx, added by wszqkzqk: 0x28
+    uint32_t            mZombatarHeadCount;                 //+GOTY from @lmintlcx, added by wszqkzqk: 0x29
+    std::vector<unsigned char> mZombatarData;               // raw 0x48 * count
+    unsigned char       mZombatarTrailingUnknown[0x14];     // unknown bytes after Zombatars
+    unsigned char       mZombatarCreatedBefore;             // created at least one Zombatar (0/1)
 
 public:
     PlayerInfo();
