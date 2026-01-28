@@ -4766,7 +4766,18 @@ void Challenge::IZombieUpdate()
 		}
 	}
 
-	if (mBoard->mZombies.mSize == 0 && aSunMoney < 50 && !mBoard->HasLevelAwardDropped() && !anActive)
+	bool aHasAvailableSun = false;
+	Coin* aCoinForSun = nullptr;
+	while (mBoard->IterateCoins(aCoinForSun))
+	{
+		if (aCoinForSun->IsSun() && !aCoinForSun->mIsBeingCollected && !aCoinForSun->mDead)
+		{
+			aHasAvailableSun = true;
+			break;
+		}
+	}
+
+	if (mBoard->mZombies.mSize == 0 && aSunMoney < 50 && !mBoard->HasLevelAwardDropped() && !anActive && !aHasAvailableSun)
 	{
 		Coin* aCoin = nullptr;
 		while (mBoard->IterateCoins(aCoin))
