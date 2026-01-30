@@ -5,6 +5,7 @@
 #include "misc/DescParser.h"
 #include "SexyAppBase.h"
 #include "SharedImage.h"
+#include <atomic>
 
 namespace Sexy
 {
@@ -73,7 +74,7 @@ class FontData : public DescParser
 {
 public:
 	bool					mInitialized;
-	int						mRefCount;
+	std::atomic<int>		mRefCount;
 	SexyAppBase*			mApp;		
 
 	int						mDefaultPointSize;

@@ -6035,7 +6035,7 @@ SharedImageRef SexyAppBase::SetSharedImage(const std::string& theFileName, const
 	
 	{
 		AutoCrit anAutoCrit(mGLInterface->mCritSect);
-		aResultPair = mSharedImageMap.insert(SharedImageMap::value_type(SharedImageMap::key_type(anUpperFileName, anUpperVariant), SharedImage()));
+		aResultPair = mSharedImageMap.try_emplace(SharedImageMap::key_type(anUpperFileName, anUpperVariant));
 		aSharedImageRef = &aResultPair.first->second;
 	}
 
@@ -6060,7 +6060,7 @@ SharedImageRef SexyAppBase::GetSharedImage(const std::string& theFileName, const
 
 	{
 		AutoCrit anAutoCrit(mGLInterface->mCritSect);	
-		aResultPair = mSharedImageMap.insert(SharedImageMap::value_type(SharedImageMap::key_type(anUpperFileName, anUpperVariant), SharedImage()));
+		aResultPair = mSharedImageMap.try_emplace(SharedImageMap::key_type(anUpperFileName, anUpperVariant));
 		aSharedImageRef = &aResultPair.first->second;
 	}
 

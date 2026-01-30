@@ -2,6 +2,7 @@
 #define __SHARED_IMAGE_H__
 
 #include "Common.h"
+#include <atomic>
 
 namespace Sexy
 {
@@ -14,7 +15,7 @@ class SharedImage
 {
 public:
 	GLImage*				mImage;
-	int						mRefCount;		
+	std::atomic<int>		mRefCount;		
 
 	SharedImage();
 };
