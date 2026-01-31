@@ -216,7 +216,6 @@ void TodTraceWithoutSpamming(const char* theFormat, ...)
 
 void TodAssertInitForApp()
 {
-	MkDir(GetAppDataFolder());
 	MkDir(GetAppDataPath("userdata"));
 	std::string aRelativeUserPath = GetAppDataPath("userdata/");
 	strcpy(gDebugDataFolder, aRelativeUserPath.c_str());

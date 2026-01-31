@@ -3,14 +3,9 @@
 #include "misc/Debug.h"
 #include <locale>
 #include <codecvt>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <errno.h>
 #include <filesystem>
-#ifndef _MSC_VER
-#include <unistd.h>
-#endif
-#include <dirent.h>
+#include <chrono>
 #include <stdarg.h>
 
 #ifdef __SWITCH__
@@ -20,10 +15,6 @@
 #endif
 
 #include "misc/PerfTimer.h"
-
-#ifdef _WIN32
-#define mkdir(dir, mode) mkdir(dir)
-#endif
 
 //HINSTANCE Sexy::gHInstance;
 bool Sexy::gDebug = false;
@@ -69,60 +60,6 @@ void Sexy::SRand(ulong theSeed)
 {
 	gMTRand.SRand(theSeed);
 }
-
-/*
-bool Sexy::CheckFor98Mill()
-{
-	static bool needOsCheck = true;
-	static bool is98Mill = false;
-
-	if (needOsCheck)
-	{
-		// bool invalid = false; // unused
-		OSVERSIONINFOEXA osvi;
-		ZeroMemory(&osvi, sizeof(OSVERSIONINFOEXA));
-
-		osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-		if( GetVersionExA((LPOSVERSIONINFOA)&osvi) == 0)
-		{
-			osvi.dwOSVersionInfoSize = sizeof (OSVERSIONINFOA);
-			if ( GetVersionExA((LPOSVERSIONINFOA)&osvi) == 0)
-				return false;
-		}
-
-		needOsCheck = false;
-		is98Mill = osvi.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS; // let's check Win95, 98, *AND* ME.
-	}
-
-	return is98Mill;
-}
-
-bool Sexy::CheckForVista()
-{
-	static bool needOsCheck = true;
-	static bool isVista = false;
-
-	if (needOsCheck)
-	{
-		// bool invalid = false; // unused
-		OSVERSIONINFOEXA osvi;
-		ZeroMemory(&osvi, sizeof(OSVERSIONINFOEXA));
-
-		osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXA);
-		if( GetVersionExA((LPOSVERSIONINFOA)&osvi) == 0)
-		{
-			osvi.dwOSVersionInfoSize = sizeof (OSVERSIONINFOA);
-			if ( GetVersionExA((LPOSVERSIONINFOA)&osvi) == 0)
-				return false;
-		}
-
-		needOsCheck = false;
-		isVista = osvi.dwMajorVersion >= 6;
-	}
-
-	return isVista;
-}
-*/
 
 std::string Sexy::GetAppDataFolder()
 {
@@ -566,8 +503,11 @@ SexyString Sexy::CommaSeperate(int theValue)
 
 std::string Sexy::GetCurDir()
 {
-	char aDir[256];
-	return getcwd(aDir, sizeof(aDir));
+	std::error_code ec;
+	std::filesystem::path cur = std::filesystem::current_path(ec);
+	if (ec)
+		return std::string();
+	return cur.string();
 }
 
 std::string Sexy::GetFullPath(const std::string& theRelPath)
@@ -577,334 +517,84 @@ std::string Sexy::GetFullPath(const std::string& theRelPath)
 
 std::string Sexy::GetPathFrom(const std::string& theRelPath, const std::string& theDir)
 {
-	std::string aDriveString;
-	std::string aNewPath = theDir;
+	std::filesystem::path relPath(theRelPath);
+	if (relPath.is_absolute() || relPath.has_root_name())
+		return relPath.lexically_normal().string();
 
-	if ((theRelPath.length() >= 2) && (theRelPath[1] == ':'))
-		return theRelPath;
-
-	char aSlashChar = '/';
-
-	//if ((theRelPath.find('\\') != (size_t)-1) || (theDir.find('\\') != (size_t)-1))
-		//aSlashChar = '\\';
-
-	if ((aNewPath.length() >= 2) && (aNewPath[1] == ':'))
-	{
-		aDriveString = aNewPath.substr(0, 2);
-		aNewPath.erase(aNewPath.begin(), aNewPath.begin()+2);
-	}
-
-	// Append a trailing slash if necessary
-	if ((aNewPath.length() > 0) && (aNewPath[aNewPath.length()-1] != '\\') && (aNewPath[aNewPath.length()-1] != '/'))
-		aNewPath += aSlashChar;
-
-	std::string aTempRelPath = theRelPath;
-
-	for (;;)
-	{
-		if (aNewPath.length() == 0)
-			break;
-
-		int aFirstSlash = aTempRelPath.find('\\');
-		int aFirstForwardSlash = aTempRelPath.find('/');
-
-		if ((aFirstSlash == -1) || ((aFirstForwardSlash != -1) && (aFirstForwardSlash < aFirstSlash)))
-			aFirstSlash = aFirstForwardSlash;
-
-		if (aFirstSlash == -1)
-			break;
-
-		std::string aChDir = aTempRelPath.substr(0, aFirstSlash);
-
-		aTempRelPath.erase(aTempRelPath.begin(), aTempRelPath.begin() + aFirstSlash + 1);						
-
-		if (aChDir.compare("..") == 0)
-		{			
-			int aLastDirStart = aNewPath.length() - 1;
-			while ((aLastDirStart > 0) && (aNewPath[aLastDirStart-1] != '\\') && (aNewPath[aLastDirStart-1] != '/'))
-				aLastDirStart--;
-
-			std::string aLastDir = aNewPath.substr(aLastDirStart, aNewPath.length() - aLastDirStart - 1);
-			if (aLastDir.compare("..") == 0)
-			{
-				aNewPath += "..";
-				aNewPath += aSlashChar;
-			}
-			else
-			{
-				aNewPath.erase(aNewPath.begin() + aLastDirStart, aNewPath.end());
-			}
-		}		
-		else if (aChDir.compare("") == 0)
-		{
-			aNewPath = aSlashChar;
-			break;
-		}
-		else if (aChDir.compare(".") != 0)
-		{
-			aNewPath += aChDir + aSlashChar;
-			break;
-		}
-	}
-
-	aNewPath = aDriveString + aNewPath + aTempRelPath;
-
-	if (aSlashChar == '/')
-	{
-		for (;;)
-		{
-			int aSlashPos = aNewPath.find('\\');
-			if (aSlashPos == -1)
-				break;
-			aNewPath[aSlashPos] = '/';
-		}
-	}
+	std::filesystem::path baseDir;
+	if (!theDir.empty())
+		baseDir = std::filesystem::path(theDir);
 	else
 	{
-		for (;;)
-		{
-			int aSlashPos = aNewPath.find('/');
-			if (aSlashPos == -1)
-				break;
-			aNewPath[aSlashPos] = '\\';
-		}
+		std::error_code ec;
+		baseDir = std::filesystem::current_path(ec);
+		if (ec)
+			return relPath.lexically_normal().string();
 	}
 
-	return aNewPath;
+	return (baseDir / relPath).lexically_normal().string();
 }
 
 bool Sexy::AllowAllAccess(const std::string& theFileName)
 {
 	return false;
-	// brain rot
-	/*
-	HMODULE aLib = LoadLibraryA("advapi32.dll");
-	if (aLib == nullptr)
-		return false;
-
-	BOOL (WINAPI *fnSetFileSecurity)(LPCTSTR lpFileName, SECURITY_INFORMATION SecurityInformation, PSECURITY_DESCRIPTOR pSecurityDescriptor);
-	BOOL (WINAPI *fnSetSecurityDescriptorDacl)(PSECURITY_DESCRIPTOR pSecurityDescriptor, BOOL bDaclPresent, PACL pDacl, BOOL bDaclDefaulted);
-	BOOL (WINAPI *fnInitializeSecurityDescriptor)(PSECURITY_DESCRIPTOR pSecurityDescriptor, DWORD dwRevision);
-	BOOL (WINAPI *fnAllocateAndInitializeSid)(
-	  PSID_IDENTIFIER_AUTHORITY pIdentifierAuthority,
-	  BYTE nSubAuthorityCount,
-	  DWORD dwSubAuthority0,
-	  DWORD dwSubAuthority1,
-	  DWORD dwSubAuthority2,
-	  DWORD dwSubAuthority3,
-	  DWORD dwSubAuthority4,
-	  DWORD dwSubAuthority5,
-	  DWORD dwSubAuthority6,
-	  DWORD dwSubAuthority7,
-	  PSID* pSid
-	);
-	DWORD (WINAPI *fnSetEntriesInAcl)(ULONG cCountOfExplicitEntries, PEXPLICIT_ACCESS pListOfExplicitEntries, PACL OldAcl, PACL* NewAcl);
-	PVOID (WINAPI *fnFreeSid)(PSID pSid);
-
-	*(void**)&fnSetFileSecurity = (void*)GetProcAddress(aLib, "SetFileSecurityA");
-	*(void**)&fnSetSecurityDescriptorDacl = (void*)GetProcAddress(aLib, "SetSecurityDescriptorDacl");
-	*(void**)&fnInitializeSecurityDescriptor = (void*)GetProcAddress(aLib, "InitializeSecurityDescriptor");
-	*(void**)&fnAllocateAndInitializeSid = (void*)GetProcAddress(aLib, "AllocateAndInitializeSid");
-	*(void**)&fnSetEntriesInAcl = (void*)GetProcAddress(aLib, "SetEntriesInAclA");
-	*(void**)&fnFreeSid = (void*) GetProcAddress(aLib, "FreeSid");
-
-	if (!(fnSetFileSecurity && fnSetSecurityDescriptorDacl && fnInitializeSecurityDescriptor && fnAllocateAndInitializeSid && fnSetEntriesInAcl && fnFreeSid))
-	{
-		FreeLibrary(aLib);
-		return false;
-	}
-
-
-	PSID pEveryoneSID = nullptr;
-	SID_IDENTIFIER_AUTHORITY SIDAuthWorld = SECURITY_WORLD_SID_AUTHORITY;
-	bool result = false;
-
-    // Create a well-known SID for the Everyone group.
-    if (fnAllocateAndInitializeSid(&SIDAuthWorld, 1,
-                     SECURITY_WORLD_RID,
-                     0, 0, 0, 0, 0, 0, 0,
-                     &pEveryoneSID))
-    {
-		EXPLICIT_ACCESS ea;
-
-		// Initialize an EXPLICIT_ACCESS structure for an ACE.
-		// The ACE will allow Everyone read access to the key.
-		ZeroMemory(&ea, sizeof(EXPLICIT_ACCESS));
-		ea.grfAccessPermissions = STANDARD_RIGHTS_ALL | SPECIFIC_RIGHTS_ALL;
-		ea.grfAccessMode = SET_ACCESS;
-		ea.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
-		ea.Trustee.TrusteeForm = TRUSTEE_IS_SID;
-		ea.Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
-		ea.Trustee.ptstrName = (LPTSTR) pEveryoneSID;
-
-		// Create a new ACL that contains the new ACEs.
-		PACL pACL = nullptr; 
-		if (fnSetEntriesInAcl(1, &ea, nullptr, &pACL) == ERROR_SUCCESS)
-		{		
-			// Initialize a security descriptor.  
-			PSECURITY_DESCRIPTOR pSD = (PSECURITY_DESCRIPTOR) new char[SECURITY_DESCRIPTOR_MIN_LENGTH]; 
-						 
-			if (fnInitializeSecurityDescriptor(pSD, SECURITY_DESCRIPTOR_REVISION)) 
-			{  							 
-				// Add the ACL to the security descriptor. 
-				if (fnSetSecurityDescriptorDacl(pSD, 
-						TRUE,     // bDaclPresent flag   
-						pACL, 
-						FALSE))   // not a default DACL 
-				{
-					if (fnSetFileSecurity(theFileName.c_str(), DACL_SECURITY_INFORMATION, pSD))
-						result = true;
-				}
-			}
-		}
-	}
-
-	FreeLibrary(aLib);
-	return result;
-	*/
 }
 
 bool Sexy::Deltree(const std::string& thePath)
 {
-	std::string aSourceDir = thePath;
-	if (aSourceDir.at(aSourceDir.size()-1) != '/')
-		aSourceDir += "/";
-
-	struct dirent* entry;
-	DIR* dir = opendir(thePath.c_str());
-	if (!dir) return false;
-
-	while ((entry = readdir(dir)))
-	{
-		if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) continue;
-		struct stat attr;
-		stat((aSourceDir + entry->d_name).c_str(), &attr);
-		if (S_ISDIR(attr.st_mode))
-		{
-			Deltree(aSourceDir + entry->d_name);
-			rmdir((aSourceDir + entry->d_name).c_str());
-		}
-		else
-			remove((aSourceDir + entry->d_name).c_str());
-	}
-
-	closedir(dir);
-	rmdir(thePath.c_str());
-	return true;
-
-	/*
-	bool success = true;
-
-	std::string aSourceDir = thePath;
-	
-	if (aSourceDir.length() < 2)
+	std::error_code ec;
+	std::filesystem::path path(thePath);
+	if (!std::filesystem::exists(path, ec))
 		return false;
 
-	if ((aSourceDir[aSourceDir.length() - 1] != '\\') ||
-		(aSourceDir[aSourceDir.length() - 1] != '/'))
-		aSourceDir += "/";
-	
-	WIN32_FIND_DATAA aFindData;
-
-	HANDLE aFindHandle = FindFirstFileA((aSourceDir + "*.*").c_str(), &aFindData); 
-	if (aFindHandle == INVALID_HANDLE_VALUE)
-		return false;
-	
-	do
-	{		
-		if ((aFindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
-		{
-			if ((strcmp(aFindData.cFileName, ".") != 0) &&
-				(strcmp(aFindData.cFileName, "..") != 0))
-			{
-				// Follow the directory
-				if (!Deltree(aSourceDir + aFindData.cFileName))
-					success = false;
-			}
-		}
-		else
-		{	
-			std::string aFullName = aSourceDir + aFindData.cFileName;
-			if (!DeleteFileA(aFullName.c_str()))
-				success = false;
-		}
-	}
-	while (FindNextFileA(aFindHandle, &aFindData));
-	FindClose(aFindHandle);
-
-	if (rmdir(thePath.c_str()) == 0)
-		success = false;
-
-	return success;
-	*/
+	std::filesystem::remove_all(path, ec);
+	return !ec;
 }
 
 bool Sexy::FileExists(const std::string& theFileName)
 {
-	return (access(theFileName.c_str(), F_OK) == 0);
-	/*
-	WIN32_FIND_DATAA aFindData;
-	
-	HANDLE aFindHandle = FindFirstFileA(theFileName.c_str(), &aFindData); 
-	if (aFindHandle == INVALID_HANDLE_VALUE)
-		return false;
-
-	FindClose(aFindHandle);
-	return true;
-	*/
+	std::error_code ec;
+	return std::filesystem::exists(theFileName, ec);
 }
 
 void Sexy::MkDir(const std::string& theDir)
 {
-	std::string aPath = theDir;
-
-	int aCurPos = 0;
-	for (;;)
-	{
-		int aSlashPos = aPath.find_first_of("\\/", aCurPos);
-		if (aSlashPos == -1)
-		{
-			mkdir(aPath.c_str(), 0755);
-			break;
-		}
-
-		aCurPos = aSlashPos+1;
-
-		std::string aCurPath = aPath.substr(0, aSlashPos);
-		mkdir(aCurPath.c_str(), 0755);
-	}
+	std::error_code ec;
+	std::filesystem::create_directories(theDir, ec);
 }
 
 std::string Sexy::GetFileName(const std::string& thePath, bool noExtension)
 {
-	int aLastSlash = std::max((int) thePath.rfind('\\'), (int) thePath.rfind('/'));
-
-	if (noExtension)
+	if (!thePath.empty())
 	{
-		int aLastDot = (int)thePath.rfind('.');
-		if (aLastDot > aLastSlash)
-			return thePath.substr(aLastSlash + 1, aLastDot - aLastSlash - 1);
+		char lastChar = thePath[thePath.length() - 1];
+		if (lastChar == '\\' || lastChar == '/')
+			return "";
 	}
 
-	if (aLastSlash == -1)
-		return thePath;
-	else
-		return thePath.substr(aLastSlash + 1);
+	std::filesystem::path path(thePath);
+	if (noExtension)
+		return path.stem().string();
+
+	return path.filename().string();
 }
 
 std::string Sexy::GetFileDir(const std::string& thePath, bool withSlash)
 {
-	int aLastSlash = std::max((int) thePath.rfind('\\'), (int) thePath.rfind('/'));
-
-	if (aLastSlash == -1)
+	std::filesystem::path path(thePath);
+	std::filesystem::path parent = path.parent_path();
+	if (parent.empty())
 		return "";
-	else
+
+	std::string result = parent.string();
+	if (withSlash)
 	{
-		if (withSlash)
-			return thePath.substr(0, aLastSlash+1);
-		else
-			return thePath.substr(0, aLastSlash);
+		char lastChar = result[result.length() - 1];
+		if (lastChar != '/' && lastChar != '\\')
+			result += std::filesystem::path::preferred_separator;
 	}
+
+	return result;
 }
 
 std::string Sexy::RemoveTrailingSlash(const std::string& theDirectory)
@@ -923,7 +613,7 @@ std::string	Sexy::AddTrailingSlash(const std::string& theDirectory, bool backSla
 	{
 		char aChar = theDirectory[theDirectory.length()-1];
 		if (aChar!='\\' && aChar!='/')
-			return theDirectory + '/';
+			return theDirectory + (backSlash ? '\\' : '/');
 		else
 			return theDirectory;
 	}
@@ -934,31 +624,14 @@ std::string	Sexy::AddTrailingSlash(const std::string& theDirectory, bool backSla
 
 time_t Sexy::GetFileDate(const std::string& theFileName)
 {
-	struct stat attr;
-	if (stat(theFileName.c_str(), &attr) == 0) return 0;
-	return attr.st_mtime;
+	std::error_code ec;
+	auto ftime = std::filesystem::last_write_time(theFileName, ec);
+	if (ec)
+		return 0;
 
-	/*
-	time_t aFileDate = 0;
-
-	WIN32_FIND_DATAA aFindData;
-	HANDLE aFindHandle = ::FindFirstFileA(theFileName.c_str(), &aFindData);
-
-	if (aFindHandle != INVALID_HANDLE_VALUE)
-	{		
-		FILETIME aFileTime = aFindData.ftLastWriteTime;
-						
-		//FileTimeToUnixTime(&aFileTime, &aFileDate, FALSE);
-
-		LONGLONG ll = (__int64) aFileTime.dwHighDateTime << 32;
-		ll = ll + aFileTime.dwLowDateTime - 116444736000000000;
-		aFileDate = (time_t) (ll/10000000);
-
-		FindClose(aFindHandle);
-	}
-
-	return aFileDate;
-	*/
+	auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+		ftime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
+	return std::chrono::system_clock::to_time_t(sctp);
 }
 
 std::string Sexy::vformat(const char* fmt, va_list argPtr) 
