@@ -110,6 +110,13 @@ uint32_t DataReader::ReadUInt32()
 	return FromLE32(aLong);
 }
 
+uint64_t DataReader::ReadUInt64()
+{
+	uint64_t aValue;
+	ReadBytes(&aValue, sizeof(aValue));
+	return FromLE64(aValue);
+}
+
 uint8_t DataReader::ReadUInt8()
 {
 	uint8_t aChar;
@@ -199,6 +206,18 @@ void DataSync::SyncBytes(void* theData, uint32_t theDataLen)
 	else
 	{
 		mWriter->WriteBytes(theData, theDataLen);
+	}
+}
+
+void DataSync::SyncUInt64(uint64_t& theNum)
+{
+	if (mReader)
+	{
+		theNum = mReader->ReadUInt64();
+	}
+	else
+	{
+		mWriter->WriteUInt64(theNum);
 	}
 }
 
@@ -471,6 +490,12 @@ void DataWriter::WriteUInt32(uint32_t theUInt32)
 {
 	uint32_t aLE = ToLE32(theUInt32);
 	WriteBytes(&aLE, sizeof(uint32_t));
+}
+
+void DataWriter::WriteUInt64(uint64_t theUInt64)
+{
+	uint64_t aLE = ToLE64(theUInt64);
+	WriteBytes(&aLE, sizeof(uint64_t));
 }
 
 //0x4437C0

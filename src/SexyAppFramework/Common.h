@@ -239,47 +239,27 @@ inline constexpr uint64_t ByteSwap64(uint64_t v) noexcept
 }
 
 // Little-endian conversion helpers (file format is always little-endian)
-inline constexpr uint16_t FromLE16(uint16_t v) noexcept
+template <typename T>
+inline constexpr T LEConvert(T v) noexcept
 {
 	if constexpr (std::endian::native == std::endian::big)
-		return ByteSwap16(v);
+	{
+		if constexpr (sizeof(T) == 2)
+			return (T)ByteSwap16((uint16_t)v);
+		if constexpr (sizeof(T) == 4)
+			return (T)ByteSwap32((uint32_t)v);
+		if constexpr (sizeof(T) == 8)
+			return (T)ByteSwap64((uint64_t)v);
+	}
 	return v;
 }
 
-inline constexpr uint16_t ToLE16(uint16_t v) noexcept
-{
-	if constexpr (std::endian::native == std::endian::big)
-		return ByteSwap16(v);
-	return v;
-}
-
-inline constexpr uint32_t FromLE32(uint32_t v) noexcept
-{
-	if constexpr (std::endian::native == std::endian::big)
-		return ByteSwap32(v);
-	return v;
-}
-
-inline constexpr uint32_t ToLE32(uint32_t v) noexcept
-{
-	if constexpr (std::endian::native == std::endian::big)
-		return ByteSwap32(v);
-	return v;
-}
-
-inline constexpr uint64_t FromLE64(uint64_t v) noexcept
-{
-	if constexpr (std::endian::native == std::endian::big)
-		return ByteSwap64(v);
-	return v;
-}
-
-inline constexpr uint64_t ToLE64(uint64_t v) noexcept
-{
-	if constexpr (std::endian::native == std::endian::big)
-		return ByteSwap64(v);
-	return v;
-}
+inline constexpr uint16_t FromLE16(uint16_t v) noexcept { return LEConvert(v); }
+inline constexpr uint16_t ToLE16(uint16_t v) noexcept { return LEConvert(v); }
+inline constexpr uint32_t FromLE32(uint32_t v) noexcept { return LEConvert(v); }
+inline constexpr uint32_t ToLE32(uint32_t v) noexcept { return LEConvert(v); }
+inline constexpr uint64_t FromLE64(uint64_t v) noexcept { return LEConvert(v); }
+inline constexpr uint64_t ToLE64(uint64_t v) noexcept { return LEConvert(v); }
 
 struct StringLessNoCase { bool operator()(const std::string &s1, const std::string &s2) const { return strcasecmp(s1.c_str(),s2.c_str())<0; } };
 

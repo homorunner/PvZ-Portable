@@ -24,14 +24,14 @@ public:
     int32_t             mX;                         //+0x8
     int32_t             mY;                         //+0xC
     FacingDirection     mFacing;                    //+0x10
-    // Padding: 4 bytes at +0x14 for alignment      //+0x14
+    uint32_t            mPadding1;                  //+0x14 for explicit alignment, unused
     int64_t             mLastWateredTime;           //+0x18
     DrawVariation       mDrawVariation;             //+0x20
     PottedPlantAge      mPlantAge;                  //+0x24
     int32_t             mTimesFed;                  //+0x28
     int32_t             mFeedingsPerGrow;           //+0x2C
     PottedPlantNeed     mPlantNeed;                 //+0x30
-    // Padding: 4 bytes at +0x34 for alignment      //+0x34
+    uint32_t            mPadding2;                  //+0x34, for explicit alignment, unused
     int64_t             mLastNeedFulfilledTime;     //+0x38
     int64_t             mLastFertilizedTime;        //+0x40
     int64_t             mLastChocolateTime;         //+0x48

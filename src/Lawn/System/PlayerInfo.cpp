@@ -1,3 +1,5 @@
+#include <bit>
+
 #include "DataSync.h"
 #include "PlayerInfo.h"
 #include "../LawnCommon.h"
@@ -8,6 +10,33 @@
 #include "../../SexyAppFramework/SexyAppBase.h"
 
 static int gUserVersion = 12;
+
+// Convert PottedPlant between little-endian file format and native byte order.
+// No-op on little-endian machines (entire function optimized away at compile time).
+static inline void PottedPlantFromLE(PottedPlant& p)
+{
+	if constexpr (std::endian::native == std::endian::little)
+		return;
+
+	p.mSeedType = (SeedType)FromLE32((uint32_t)p.mSeedType);
+	p.mWhichZenGarden = (GardenType)FromLE32((uint32_t)p.mWhichZenGarden);
+	p.mX = (int32_t)FromLE32((uint32_t)p.mX);
+	p.mY = (int32_t)FromLE32((uint32_t)p.mY);
+	p.mFacing = (PottedPlant::FacingDirection)FromLE32((uint32_t)p.mFacing);
+	p.mLastWateredTime = (int64_t)FromLE64((uint64_t)p.mLastWateredTime);
+	p.mDrawVariation = (DrawVariation)FromLE32((uint32_t)p.mDrawVariation);
+	p.mPlantAge = (PottedPlantAge)FromLE32((uint32_t)p.mPlantAge);
+	p.mTimesFed = (int32_t)FromLE32((uint32_t)p.mTimesFed);
+	p.mFeedingsPerGrow = (int32_t)FromLE32((uint32_t)p.mFeedingsPerGrow);
+	p.mPlantNeed = (PottedPlantNeed)FromLE32((uint32_t)p.mPlantNeed);
+	p.mLastNeedFulfilledTime = (int64_t)FromLE64((uint64_t)p.mLastNeedFulfilledTime);
+	p.mLastFertilizedTime = (int64_t)FromLE64((uint64_t)p.mLastFertilizedTime);
+	p.mLastChocolateTime = (int64_t)FromLE64((uint64_t)p.mLastChocolateTime);
+	p.mFutureAttribute[0] = (int64_t)FromLE64((uint64_t)p.mFutureAttribute[0]);
+}
+
+// ToLE is identical to FromLE for byte swapping (both swap on big-endian, no-op on little-endian)
+static inline void PottedPlantToLE(PottedPlant& p) { PottedPlantFromLE(p); }
 
 PlayerInfo::PlayerInfo()
 {
@@ -74,7 +103,10 @@ void PlayerInfo::SyncDetails(DataSync& theSync)
 	TOD_ASSERT(mNumPottedPlants <= MAX_POTTED_PLANTS);
 	for (int i = 0; i < mNumPottedPlants; i++)
 	{
+		if (theSync.GetWriter())
+			PottedPlantToLE(mPottedPlant[i]);
 		theSync.SyncBytes(&mPottedPlant[i], sizeof(PottedPlant));
+		PottedPlantFromLE(mPottedPlant[i]);
 	}
 
 	// Implemented by wszqkzqk with doc: https://plantsvszombies.fandom.com/wiki/User_file_format

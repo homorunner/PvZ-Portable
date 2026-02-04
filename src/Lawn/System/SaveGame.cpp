@@ -578,14 +578,6 @@ static void SyncTodSmoothArrayList(PortableSaveContext& theContext, TodSmoothArr
 		SyncTodSmoothArray(theContext, theData[i]);
 }
 
-static void SyncTimeT(PortableSaveContext& theContext, time_t& theTime)
-{
-	int64_t aValue = (int64_t)theTime;
-	theContext.SyncInt64(aValue);
-	if (theContext.mReading)
-		theTime = (time_t)aValue;
-}
-
 static void SyncPottedPlantPortable(PortableSaveContext& theContext, PottedPlant& thePlant)
 {
 	SyncEnum32(theContext, thePlant.mSeedType);
@@ -593,16 +585,16 @@ static void SyncPottedPlantPortable(PortableSaveContext& theContext, PottedPlant
 	theContext.SyncInt32(thePlant.mX);
 	theContext.SyncInt32(thePlant.mY);
 	SyncEnum32(theContext, thePlant.mFacing);
-	SyncTimeT(theContext, thePlant.mLastWateredTime);
+	theContext.SyncInt64(thePlant.mLastWateredTime);
 	SyncEnum32(theContext, thePlant.mDrawVariation);
 	SyncEnum32(theContext, thePlant.mPlantAge);
 	theContext.SyncInt32(thePlant.mTimesFed);
 	theContext.SyncInt32(thePlant.mFeedingsPerGrow);
 	SyncEnum32(theContext, thePlant.mPlantNeed);
-	SyncTimeT(theContext, thePlant.mLastNeedFulfilledTime);
-	SyncTimeT(theContext, thePlant.mLastFertilizedTime);
-	SyncTimeT(theContext, thePlant.mLastChocolateTime);
-	SyncTimeT(theContext, thePlant.mFutureAttribute[0]);
+	theContext.SyncInt64(thePlant.mLastNeedFulfilledTime);
+	theContext.SyncInt64(thePlant.mLastFertilizedTime);
+	theContext.SyncInt64(thePlant.mLastChocolateTime);
+	theContext.SyncInt64(thePlant.mFutureAttribute[0]);
 }
 
 static void SyncMotionTrailFramePortable(PortableSaveContext& theContext, MotionTrailFrame& theFrame)
@@ -2270,6 +2262,9 @@ static bool LawnLoadGameV4(Board* theBoard, const std::string& theFilePath)
 
 	SaveFileHeaderV4 aHeader;
 	memcpy(&aHeader, aBuffer.GetDataPtr(), sizeof(aHeader));
+	aHeader.mVersion = FromLE32(aHeader.mVersion);
+	aHeader.mPayloadSize = FromLE32(aHeader.mPayloadSize);
+	aHeader.mPayloadCrc = FromLE32(aHeader.mPayloadCrc);
 	if (memcmp(aHeader.mMagic, SAVE_FILE_MAGIC_V4, sizeof(aHeader.mMagic)) != 0)
 		return false;
 	if (aHeader.mVersion != SAVE_FILE_V4_VERSION)
@@ -2948,9 +2943,9 @@ bool LawnSaveGame(Board* theBoard, const std::string& theFilePath)
 
 	SaveFileHeaderV4 aHeader{};
 	memcpy(aHeader.mMagic, SAVE_FILE_MAGIC_V4, sizeof(aHeader.mMagic));
-	aHeader.mVersion = SAVE_FILE_V4_VERSION;
-	aHeader.mPayloadSize = (unsigned int)aPayload.size();
-	aHeader.mPayloadCrc = crc32(0, (Bytef*)aPayload.data(), (unsigned int)aPayload.size());
+	aHeader.mVersion = ToLE32(SAVE_FILE_V4_VERSION);
+	aHeader.mPayloadSize = ToLE32((unsigned int)aPayload.size());
+	aHeader.mPayloadCrc = ToLE32(crc32(0, (Bytef*)aPayload.data(), (unsigned int)aPayload.size()));
 
 	std::vector<unsigned char> aOutBuffer;
 	aOutBuffer.resize(sizeof(aHeader) + aPayload.size());
