@@ -349,14 +349,14 @@ int TodDrawStringWrappedHelper(Graphics* g, const std::string& theText, const Re
 	while (aCurPos < theText.size())
 	{
 		aCurChar = theText[aCurPos];
-		if (aCurChar == '{')  // 如果当前字符是特殊格式控制字符的起始标志（即“{”）
+		if (aCurChar == '{')  // 如果当前字符是特殊格式控制字符的起始标志（即`{`）
 		{
 			const char* aFmtStart = aCurPos + theText.c_str();
 			const char* aFormat = aFmtStart + 1;
 			const char* aFmtEnd = strchr(aFormat, '}');
-			if (aFmtEnd != nullptr)  // 如果存在与“{”对应的“}”，即存在完整的控制字符
+			if (aFmtEnd != nullptr)  // 如果存在与`{`对应的`}`，即存在完整的控制字符
 			{
-				aCurPos += aFmtEnd - aFormat;  // aCurPos 移至“}”的下一个字符处
+				aCurPos += aFmtEnd - aFmtStart + 1;  // aCurPos 移至`}`的下一个字符处
 				int aOldAscentOffset = theFont->GetAscent() - theFont->GetAscentPadding();
 				Color aExistingColor = aCurrentFormat.mNewColor;  // 备份当前格式的颜色
 				TodWriteStringSetFormat(aFormat, aCurrentFormat);  // 根据当前控制字符设置新的格式

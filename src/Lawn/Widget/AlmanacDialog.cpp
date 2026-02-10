@@ -345,7 +345,7 @@ void AlmanacDialog::DrawPlants(Graphics* g)
 		TodDrawStringWrapped(g, aCostStr, Rect(485, 520, 134, 50), Sexy::FONT_BRIANNETOD12, Color::White, DS_ALIGN_LEFT);
 
 		std::string aRechargeStr = TodReplaceString(
-			"{KEYWORD}{WAIT_TIME}:{STAT}{WAIT_TIME_LENGTH}", 
+			"{KEYWORD}{WAIT_TIME}: {STAT}{WAIT_TIME_LENGTH}", 
 			"{WAIT_TIME_LENGTH}",
 			aPlantDef.mRefreshTime == 750 ? "[WAIT_TIME_SHORT]" : aPlantDef.mRefreshTime == 3000 ? "[WAIT_TIME_LONG]" : "[WAIT_TIME_VERY_LONG]" // @Patoke: fix typo XD
 		);
