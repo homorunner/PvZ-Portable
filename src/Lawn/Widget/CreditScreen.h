@@ -51,12 +51,6 @@ public:
 	CreditBrainType			mBrainType;					//+0xC
 };
 
-class TodsHackyUnprotectedPerfTimer : public PerfTimer
-{
-public:
-	void					SetStartTime(int theTimeMillisecondsAgo);
-};
-
 class GameButton;
 class LawnApp;
 class LawnStoneButton;

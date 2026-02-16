@@ -1512,17 +1512,6 @@ void CreditScreen::TurnOffTongues(Reanimation* theReanim, int aParentTrack)
     }
 }
 
-//0x437FC0
-/*
-void TodsHackyUnprotectedPerfTimer::SetStartTime(int theTimeMillisecondsAgo)
-{
-    SDL_GetPerformanceCounter(&mStart);
-    LARGE_INTEGER aFreq;
-    QueryPerformanceFrequency(&aFreq);
-    mStart.QuadPart += theTimeMillisecondsAgo * aFreq.QuadPart / -1000;
-}
-*/
-
 //0x438010
 void CreditScreen::JumpToFrame(CreditsPhase thePhase, float theFrame)
 {
@@ -1639,7 +1628,7 @@ void CreditScreen::JumpToFrame(CreditsPhase thePhase, float theFrame)
     }
 
     mCreditsPhase = thePhase;
-    //((TodsHackyUnprotectedPerfTimer*)&mTimerSinceStart)->SetStartTime(aJumpMilliseconds);
+    mTimerSinceStart.SetStartTime(aJumpMilliseconds);
 }
 
 void CreditScreen::KeyChar(char theChar)
@@ -1747,7 +1736,7 @@ void CreditScreen::PauseCredits()
 
     mCreditsPaused = false;
     mApp->mMusic->GameMusicPause(false);
-    //((TodsHackyUnprotectedPerfTimer*)&mTimerSinceStart)->SetStartTime(aDurationOnPause);
+    mTimerSinceStart.SetStartTime(aDurationOnPause);
 }
 
 //0x438530

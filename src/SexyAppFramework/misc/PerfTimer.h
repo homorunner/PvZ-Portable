@@ -21,6 +21,7 @@ public:
 	PerfTimer();
 	void Start();
 	void Stop();
+	void SetStartTime(int theTimeMillisecondsAgo);
 
 	double GetDuration();
 

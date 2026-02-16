@@ -746,19 +746,12 @@ void Music::GameMusicPause(bool thePause)
 	{
 		if (!mPaused && mCurMusicTune != MusicTune::MUSIC_TUNE_NONE)
 		{
-			SDLMusicInterface* anSDL = (SDLMusicInterface*)mMusicInterface;
-			auto anItr = anSDL->mMusicMap.find(mCurMusicFileMain);
-			TOD_ASSERT(anItr != anSDL->mMusicMap.end());
-			SDLMusicInfo* aMusicInfo = &anItr->second;
-
-			/*
-			if (aMusicInfo->mHStream)
+			if (mCurMusicTune == MusicTune::MUSIC_TUNE_CREDITS_ZOMBIES_ON_YOUR_LAWN)
 			{
-				mPauseOffset = gBass->BASS_ChannelGetPosition(aMusicInfo->mHStream, BASS_POS_MUSIC_ORDER);
-				mMusicInterface->StopMusic(mCurMusicFileMain);
+				// Credits music is in OGG format and doesn't support MOD order, so we use SDL's pause/resume
+				mMusicInterface->PauseMusic(mCurMusicFileMain);
 			}
 			else
-			*/
 			{
 				mPauseOffset = GetMusicOrder(mCurMusicFileMain);
 				mMusicInterface->StopMusic(mCurMusicFileMain);
@@ -781,7 +774,16 @@ void Music::GameMusicPause(bool thePause)
 	else if (mPaused)
 	{
 		if (mCurMusicTune != MusicTune::MUSIC_TUNE_NONE)
-			PlayMusic(mCurMusicTune, mPauseOffset, mPauseOffsetDrums);
+		{
+			if (mCurMusicTune == MusicTune::MUSIC_TUNE_CREDITS_ZOMBIES_ON_YOUR_LAWN)
+			{
+				mMusicInterface->ResumeMusic(mCurMusicFileMain);
+			}
+			else
+			{
+				PlayMusic(mCurMusicTune, mPauseOffset, mPauseOffsetDrums);
+			}
+		}
 		mPaused = false;
 	}
 }
