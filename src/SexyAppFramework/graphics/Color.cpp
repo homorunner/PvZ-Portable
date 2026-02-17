@@ -14,9 +14,9 @@ Color::Color() :
 }
 
 Color::Color(int theColor) :
-	mRed(theColor & 0xFF),
+	mRed((theColor >> 16) & 0xFF),
 	mGreen((theColor >> 8) & 0xFF),
-	mBlue((theColor >> 16) & 0xFF),
+	mBlue(theColor & 0xFF),
 	mAlpha((theColor >> 24) & 0xFF)
 {
 	if (mAlpha == 0)
@@ -24,9 +24,9 @@ Color::Color(int theColor) :
 }
 
 Color::Color(int theColor, int theAlpha) :
-	mRed(theColor & 0xFF),
+	mRed((theColor >> 16) & 0xFF),
 	mGreen((theColor >> 8) & 0xFF),
-	mBlue((theColor >> 16) & 0xFF),
+	mBlue(theColor & 0xFF),
 	mAlpha(theAlpha)
 {
 }
