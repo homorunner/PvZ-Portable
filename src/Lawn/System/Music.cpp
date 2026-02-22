@@ -473,7 +473,7 @@ void Music::UpdateMusicBurst()
 	switch (mMusicBurstState)
 	{
 		case MusicBurstState::MUSIC_BURST_OFF:
-			if (mApp->mBoard->CountZombiesOnScreen() >= 10 || mBurstOverride == 1)
+			if ((mApp->mBoard->CountZombiesOnScreen() >= 10 || mBurstOverride == 1) && mApp->mGameMode != GameMode::GAMEMODE_INTRO)
 				StartBurst();
 			break;
 		case MusicBurstState::MUSIC_BURST_STARTING:
