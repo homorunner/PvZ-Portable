@@ -42,6 +42,7 @@ public:
 
 public:
     ZenGarden();
+    ~ZenGarden();
 
     void                    ZenGardenInitLevel();
     /*inline*/ void         DrawPottedPlantIcon(Graphics* g, float x, float y, PottedPlant* thePottedPlant);

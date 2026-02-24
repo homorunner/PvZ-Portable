@@ -85,6 +85,11 @@ ZenGarden::ZenGarden()
     mGardenType = GardenType::GARDEN_MAIN;
 }
 
+ZenGarden::~ZenGarden()
+{
+    mApp->mResourceManager->ReleaseTrackedResources(mLoadedResourceNames);
+}
+
 //0x51D0E0
 void ZenGarden::DrawPottedPlantIcon(Graphics* g, float x, float y, PottedPlant* thePottedPlant)
 {
