@@ -106,6 +106,7 @@ option(LIMBO_PAGE "Enable limbo page to access hidden levels" ON)
 option(CONSOLE "Show console on Windows" ${WIN_CONSOLE_DEFAULT})
 option(DO_FIX_BUGS "Define DO_FIX_BUGS macro (Community fixes for original game bugs of 1.2.0.1073 GOTY Edition)" OFF)
 
+find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
@@ -152,6 +153,7 @@ target_link_libraries(pvz-portable PRIVATE
 	ZLIB::ZLIB
 	SDL2::SDL2main
 	SDL2::SDL2
+	Threads::Threads
 )
 
 if (WIN32)
