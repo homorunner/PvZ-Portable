@@ -16,9 +16,9 @@ public:
         float m[3][3];
         struct
         {
-            float m00, m01, m02;
-            float m10, m11, m12;
-            float m20, m21, m22;
+            float m00, m01, m02; // scaleX*cos,	skewX*sin,	translateX
+            float m10, m11, m12; // skewY*-sin,	scaleY*cos,	translateY
+            float m20, m21, m22; // projective;	in this project always (0, 0, 1)
         };
     };
 

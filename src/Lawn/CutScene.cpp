@@ -2201,8 +2201,8 @@ void CutScene::UpdateUpsell()
 		Reanimation* aReanimSquash = mApp->AddReanimation(0, 0, 0, ReanimationType::REANIM_SQUASH);
 		aReanimSquash->PlayReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, 15.0f);
 		AttachEffect* anAttachEffect = AttachReanim(aCrazyDaveReanim->GetTrackInstanceByName("Dave_handinghand")->mAttachmentID, aReanimSquash, 92.0f, 387.0f);
+		anAttachEffect->mOffset.m00 = 1.2f;
 		anAttachEffect->mOffset.m11 = 1.2f;
-		anAttachEffect->mOffset.m22 = 1.2f;
 		aCrazyDaveReanim->Update();
 		break;
 	}
@@ -2220,7 +2220,7 @@ void CutScene::UpdateUpsell()
 			aReanimHead->AttachToAnotherReanimation(aReanimThreepeater, StrFormat("anim_head%d", i).c_str());
 		}
 		AttachEffect* anAttachEffect = AttachReanim(aCrazyDaveReanim->GetTrackInstanceByName("Dave_body1")->mAttachmentID, aReanimThreepeater, 0.0f, 0.0f);
-		TodScaleRotateTransformMatrix(anAttachEffect->mOffset, -50, 230, 0.5f, 1.2f, 1.2f);
+		TodScaleRotateTransformMatrix(anAttachEffect->mOffset, -70.0f, 260.0f, 0.5f, 1.2f, 1.2f);
 		aCrazyDaveReanim->Update();
 		aReanimThreepeater->Update();
 		break;
@@ -2231,9 +2231,9 @@ void CutScene::UpdateUpsell()
 		Reanimation* aReanimMagnet = mApp->AddReanimation(0, 0, 0, ReanimationType::REANIM_MAGNETSHROOM);
 		aReanimMagnet->PlayReanim("anim_idle", ReanimLoopType::REANIM_LOOP, 0, 15.0f);
 		TodScaleRotateTransformMatrix(aReanimMagnet->mOverlayMatrix, 0, 0, 0.3f, 1, 1);
-		AttachEffect* anAttachEffect = AttachReanim(aCrazyDaveReanim->GetTrackInstanceByName("Dave_pot")->mAttachmentID, aReanimMagnet, 49.0f, 25.0f);
+		AttachEffect* anAttachEffect = AttachReanim(aCrazyDaveReanim->GetTrackInstanceByName("Dave_pot")->mAttachmentID, aReanimMagnet, 25.0f, 49.0f);
+		anAttachEffect->mOffset.m00 = 1.2f;
 		anAttachEffect->mOffset.m11 = 1.2f;
-		anAttachEffect->mOffset.m22 = 1.2f;
 		aCrazyDaveReanim->Update();
 		break;
 	}
