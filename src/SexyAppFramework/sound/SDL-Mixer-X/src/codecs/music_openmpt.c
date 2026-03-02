@@ -52,6 +52,7 @@ typedef struct
 	double (*openmpt_module_get_position_seconds)(openmpt_module *mod);
 	double (*openmpt_module_get_duration_seconds)(openmpt_module *mod);
 	const char* (*openmpt_module_get_metadata)(openmpt_module *mod, const char *key);
+	int (*openmpt_module_ctl_set_boolean)(openmpt_module *mod, const char *ctl, int value);
 } openmpt_loader;
 
 static openmpt_loader openmpt;
@@ -102,6 +103,7 @@ static int OPENMPT_Load(void)
 		FUNCTION_LOADER(openmpt_module_get_position_seconds, double (*)(openmpt_module *mod))
 		FUNCTION_LOADER(openmpt_module_get_duration_seconds, double (*)(openmpt_module *mod))
 		FUNCTION_LOADER(openmpt_module_get_metadata, const char* (*)(openmpt_module *mod, const char *key))
+		FUNCTION_LOADER(openmpt_module_ctl_set_boolean, int (*)(openmpt_module *mod, const char *ctl, int value))
 	}
 	++openmpt.loaded;
 	return 0;
@@ -221,6 +223,8 @@ void *OPENMPT_CreateFromRW(SDL_RWops *src, int freesrc)
     meta_tags_init(&music->tags);
     meta_tags_set(&music->tags, MIX_META_TITLE, openmpt.openmpt_module_get_metadata(music->file, "title"));
 	openmpt.openmpt_module_set_repeat_count(music->file, -1);
+	/* Equivalent to BASS_MUSIC_POSRESET: stop all notes when seeking */
+	openmpt.openmpt_module_ctl_set_boolean(music->file, "seek.sync_samples", 0);
 
     if (freesrc) {
         SDL_RWclose(src);
