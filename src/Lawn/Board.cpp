@@ -5448,7 +5448,7 @@ void Board::NextWaveComing()
 	{
 		mApp->PlaySample(Sexy::SOUND_AWOOGA);
 	}
-	else if ((mApp->IsWhackAZombieLevel() && mCurrentWave == mNumWaves - 1) || IsFlagWave(mCurrentWave))
+	else if (mApp->IsWhackAZombieLevel() ? (mCurrentWave == mNumWaves - 1) : IsFlagWave(mCurrentWave))
 	{
 		mApp->PlaySample(Sexy::SOUND_SIREN);
 	}
