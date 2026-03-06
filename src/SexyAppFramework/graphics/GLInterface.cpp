@@ -1107,8 +1107,6 @@ void GLInterface::UpdateViewport()
 #else
 	int width, height;
 	SDL_GL_GetDrawableSize((SDL_Window*)mApp->mWindow, &width, &height);
-	glClear(GL_COLOR_BUFFER_BIT);
-	Flush();
 #endif
 
 	vw = width; vh = height;
@@ -1127,8 +1125,6 @@ void GLInterface::UpdateViewport()
 
 	glViewport(vx, vy, vw, vh);
 	mPresentationRect = Rect(vx, vy, vw, vh);
-	glClear(GL_COLOR_BUFFER_BIT);
-	Flush();
 }
 
 int GLInterface::Init(bool IsWindowed)
@@ -1224,6 +1220,8 @@ void GLInterface::Flush()
 #else
 	SDL_GL_SwapWindow((SDL_Window*)mApp->mWindow);
 #endif
+	// New back buffer content is undefined after swap; clear to black
+	glClear(GL_COLOR_BUFFER_BIT);
 }
 
 bool GLInterface::CreateImageTexture(MemoryImage *theImage)
