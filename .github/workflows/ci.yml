@@ -254,8 +254,11 @@ jobs:
 
     - name: Download SDL2 Source
       run: |
-        SDL2_TAG=$(curl -s https://api.github.com/repos/libsdl-org/SDL/releases \
-          | grep -oP '"tag_name":\s*"release-\K2[^"]+' | head -1)
+        SDL2_TAG=$(git ls-remote --tags https://github.com/libsdl-org/SDL.git 'refs/tags/release-2.*' \
+          | sed 's|.*refs/tags/release-||' | sort -V | tail -1)
+        if [ -z "$SDL2_TAG" ]; then
+          SDL2_TAG="2.32.10" # Fallback to a known stable version if tag retrieval fails
+        fi
         echo "Using SDL2 version: $SDL2_TAG"
         wget -q "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_TAG}/SDL2-${SDL2_TAG}.tar.gz"
         tar xf "SDL2-${SDL2_TAG}.tar.gz"
