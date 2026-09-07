@@ -595,14 +595,13 @@ void LawnApp::DoConfirmBackToMain()
 	LawnDialog* aDialog = (LawnDialog*)DoDialog(
 		Dialogs::DIALOG_CONFIRM_BACK_TO_MAIN,
 		true,
-		GetString("LEAVE_GAME_HEADER", "Leave Game?"),
-		GetString("LEAVE_GAME",
-			"Do you want to return\nto the main menu?\n\nYour game will be saved."),
+		"Quit Game?",
+		"Do you want to save and\nquit the game?\n\nYour game will be saved.",
 		"",
 		Dialog::BUTTONS_YES_NO
 	);
 
-	aDialog->mLawnYesButton->mLabel = PvzpStringTranslate("[LEAVE_BUTTON]");
+	aDialog->mLawnYesButton->mLabel = "Quit Game";
 	aDialog->mLawnNoButton->mLabel = PvzpStringTranslate("[DIALOG_BUTTON_CANCEL]");
 	//aDialog->CalcSize(0, 0);
 }
@@ -1724,12 +1723,23 @@ void LawnApp::LoadingThreadCompleted()
 
 void LawnApp::LoadingCompleted()
 {
+	if (!mTitleScreen)
+		return;
+
 	mWidgetManager->RemoveWidget(mTitleScreen.get());
 	SafeDeleteWidget(mTitleScreen.release());
 
 	mResourceManager->DeleteImage("IMAGE_TITLESCREEN");
 
-	ShowGameSelector();
+	// The menu normally creates the first profile; direct entry needs one too.
+	if (mPlayerInfo == nullptr)
+	{
+		mPlayerInfo = mProfileMgr->AddProfile("Player");
+		mProfileMgr->Save();
+		WriteToRegistry();
+	}
+
+	PreNewGame(GameMode::GAMEMODE_SCARY_POTTER_ENDLESS, true);
 }
 
 void LawnApp::URLOpenFailed(const std::string& theURL)
@@ -1848,9 +1858,9 @@ void LawnApp::ButtonDepress(int theId)
 
 		case Dialogs::DIALOG_CONFIRM_BACK_TO_MAIN:
 			KillDialog(Dialogs::DIALOG_CONFIRM_BACK_TO_MAIN);
-			mBoardResult = BoardResult::BOARDRESULT_QUIT;
-			mBoard->TryToSaveGame();
-			DoBackToMain();
+			KillNewOptionsDialog();
+			// Keep the board alive so ShutdownHook saves it before audio teardown.
+			CloseRequestAsync();
 			return;
 
 		case Dialogs::DIALOG_USERDIALOG:

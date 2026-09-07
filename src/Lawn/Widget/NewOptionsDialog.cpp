@@ -90,6 +90,10 @@ NewOptionsDialog::NewOptionsDialog(LawnApp* theApp, bool theFromGameSelector) :
 			mBackToMainButton->SetVisible(false);
 		}
 	}
+	else
+	{
+		mBackToMainButton->SetLabel("Quit Game");
+	}
 
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ICE ||
 		mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN ||
@@ -323,18 +327,9 @@ void NewOptionsDialog::ButtonDepress(int theId)
 			mApp->KillGameSelector();
 			mApp->ShowAwardScreen(AwardType::AWARD_CREDITS_ZOMBIENOTE, false);
 		}
-		else if (mApp->mBoard && mApp->mBoard->NeedSaveGame())
-		{
-			mApp->DoConfirmBackToMain();
-		}
-		else if (mApp->mBoard && mApp->mBoard->mCutScene && mApp->mBoard->mCutScene->IsSurvivalRepick())
-		{
-			mApp->DoConfirmBackToMain();
-		}
 		else
 		{
-			mApp->mBoardResult = BoardResult::BOARDRESULT_QUIT;
-			mApp->DoBackToMain();
+			mApp->DoConfirmBackToMain();
 		}
 		break;
 	}
