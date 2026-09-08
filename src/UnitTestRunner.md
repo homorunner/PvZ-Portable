@@ -30,8 +30,8 @@ zombie and row 3 / column 9 for the leftpeater. Current and maximum health
 are both 80; normal headless decay is allowed after shot three. It verifies
 leftward peas at ticks 0, 17, 33, 50, damage and fourth-shot death, and keeps
 observing through tick 140 to reject extra burst shots. It also checks the
-shooting animation and launch-counter reset to 150 at tick 50, followed by
-the normal decrement to 149 at tick 51, resolving the plant by ID.
+shooting animation and launch-counter reset to 120 at tick 50, followed by
+the normal decrement to 119 at tick 51, resolving the plant by ID.
 
 The second case sets the runtime global `ENABLE_LEFTPEATER_PLANTING_BURST`
 to false before planting. It checks that no bonus shot or animation is
@@ -40,3 +40,28 @@ repeatable normal-attack test. At tick 50 the target must still have 80
 health and the counter must be 100. Normal shots must occur at ticks 150
 and 175, leaving the target alive with 40 health at tick 200. The switch
 defaults to true and is restored after this case.
+
+The Plantern healing cases run with `ENABLE_PLANTERN_HEALING` enabled and
+disabled (default true), restoring its prior value afterward. A damaged
+Plantern starts with launch counter 100, surrounded by eight damaged
+wallnuts, with a pumpkin in its own cell and a wallnut two columns away.
+Every simulation tick through 200 checks health and the healing timer:
+only the eight neighbors gain 45 HP at ticks 100 and 200, never earlier;
+one neighbor starts just 10 HP below maximum to check the cap. Neither the
+Plantern, its same-cell pumpkin nor the distant plant is healed. With the
+switch disabled, all health and the unused timer remain unchanged.
+
+The green-vase cases use real endless `ScaryPotterPopulate` calls at stages
+0, 1, 8 and 9 with `ENABLE_PLANTERN_GREEN_VASE` enabled and disabled (default
+true), restoring its prior value afterward. Each population is isolated
+by clearing the previous grid items. Assertions check 35 uniquely placed
+vases, exactly two green seed vases, the complete original seed inventory,
+one valid sun vase, five bucketheads, one jack-in-the-box, and difficulty
+counts of `1 + min(stage, 8)` Gargantuars and `8 - min(stage, 8)` normals.
+When enabled, the single existing Plantern must be green. When disabled,
+its color is deliberately unconstrained: random selection may still make
+it green, so the test does not assert a chance outcome.
+
+Synchronous setup-only cases may call `Finish` before returning, as the
+vase cases do. Their post-update callback can be null because the runner
+skips updates for finished cases; transitions still occur in `AfterFrame`.

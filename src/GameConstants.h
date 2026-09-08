@@ -26,6 +26,8 @@ constexpr const double PI = 3.141592653589793;
 
 // Gameplay toggles
 inline bool ENABLE_LEFTPEATER_PLANTING_BURST = true;
+inline bool ENABLE_PLANTERN_HEALING = true;
+inline bool ENABLE_PLANTERN_GREEN_VASE = true;
 
 // Constants
 constexpr const int BOARD_WIDTH = 800;

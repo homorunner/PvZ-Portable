@@ -412,6 +412,7 @@ void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, Se
 	case SeedType::SEED_PLANTERN:
 	{
 		mStateCountdown = 50;
+		mLaunchCounter = 100;
 
 		if (!IsOnBoard() || mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
 		{
@@ -965,7 +966,7 @@ void Plant::UpdateShooter()
 		{
 			FireLeftpeaterPlantingBurstShot();
 			if (mStateCountdown == 1)
-				mLaunchCounter = 150;
+				mLaunchCounter = 120;
 		}
 		return;
 	}
@@ -1424,6 +1425,34 @@ void Plant::UpdateTorchwood()
 				}
 			}
 		}
+	}
+}
+
+void Plant::UpdatePlantern()
+{
+	if (!ENABLE_PLANTERN_HEALING || mDead || mPlantHealth <= 0)
+		return;
+
+	// Heal once per second of simulation time.
+	constexpr int aHealInterval = 100;
+	constexpr int aHealAmount = 45;
+	// Reuse the saved launch timer; old saves may contain its unused random value.
+	if (mLaunchCounter <= 0 || mLaunchCounter > aHealInterval)
+		mLaunchCounter = aHealInterval;
+	if (--mLaunchCounter > 0)
+		return;
+	mLaunchCounter = aHealInterval;
+
+	for (Plant* aPlant : mBoard->mPlants)
+	{
+		if (!aPlant->IsInPlay() || aPlant->NotOnGround() || aPlant->mPlantHealth <= 0 ||
+			aPlant->mPlantHealth >= aPlant->mPlantMaxHealth)
+			continue;
+		if (abs(aPlant->mPlantCol - mPlantCol) > 1 || abs(aPlant->mRow - mRow) > 1 ||
+			(aPlant->mPlantCol == mPlantCol && aPlant->mRow == mRow))
+			continue;
+
+		aPlant->mPlantHealth = std::min(aPlant->mPlantHealth + aHealAmount, aPlant->mPlantMaxHealth);
 	}
 }
 
@@ -2596,6 +2625,7 @@ void Plant::UpdateAbilities()
 	else if (MakesSun() || mSeedType == SeedType::SEED_MARIGOLD)                                UpdateProductionPlant();
 	else if (mSeedType == SeedType::SEED_GRAVEBUSTER)                                           UpdateGraveBuster();
 	else if (mSeedType == SeedType::SEED_TORCHWOOD)                                             UpdateTorchwood();
+	else if (mSeedType == SeedType::SEED_PLANTERN)                                              UpdatePlantern();
 	else if (mSeedType == SeedType::SEED_POTATOMINE)                                            UpdatePotato();
 	else if (mSeedType == SeedType::SEED_SPIKEWEED || mSeedType == SeedType::SEED_SPIKEROCK)    UpdateSpikeweed();
 	else if (mSeedType == SeedType::SEED_TANGLEKELP)                                            UpdateTanglekelp();

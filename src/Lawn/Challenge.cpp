@@ -3777,6 +3777,21 @@ void Challenge::ScaryPotterChangePotType(GridItemState thePotType, int theCount)
 		}
 	}
 	theCount = std::min(theCount, aPotCount);
+	if (ENABLE_PLANTERN_GREEN_VASE && thePotType == GRIDITEM_STATE_SCARY_POT_LEAF && theCount > 0)
+	{
+		// Reserve one green vase for the existing Plantern, without adding vases.
+		for (int i = 0; i < aPotCount; i++)
+		{
+			GridItem* aPot = reinterpret_cast<GridItem*>(aPotArray[i].mItem);
+			if (aPot->mSeedType == SEED_PLANTERN)
+			{
+				aPot->mGridItemState = thePotType;
+				aPotArray[i].mWeight = 0;
+				--theCount;
+				break;
+			}
+		}
+	}
 
 	for (int i = 0; i < theCount; i++)
 	{
@@ -3977,7 +3992,7 @@ void Challenge::ScaryPotterPopulate()
 			break;
 		case GAMEMODE_SCARY_POTTER_ENDLESS:
 		{
-			int aNumExtraGargantuars = std::clamp(mSurvivalStage / 10, 0, 8);
+			int aNumExtraGargantuars = std::clamp(mSurvivalStage, 0, 8);
 			ScaryPotterDontPlaceInCol(0, aGridArray, aGridArrayCount);
 			ScaryPotterDontPlaceInCol(1, aGridArray, aGridArrayCount);
 			ScaryPotterPlacePot(SCARYPOT_SEED, ZOMBIE_INVALID, SEED_LEFTPEATER, 6, aGridArray, aGridArrayCount);

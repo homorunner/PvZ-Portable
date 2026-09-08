@@ -260,6 +260,7 @@ public:
 	void                    KillAllPlantsNearDoom();
 	bool                    IsOnHighGround();
 	void                    UpdateTorchwood();
+	void                    UpdatePlantern();
 	void                    LaunchStarFruit();
 	bool                    FindStarFruitTarget();
 	void                    UpdateChomper();
