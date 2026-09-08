@@ -24,6 +24,9 @@
 #include "ConstEnums.h"
 constexpr const double PI = 3.141592653589793;
 
+// Gameplay toggles
+inline bool ENABLE_LEFTPEATER_PLANTING_BURST = true;
+
 // Constants
 constexpr const int BOARD_WIDTH = 800;
 constexpr const int BOARD_HEIGHT = 600;

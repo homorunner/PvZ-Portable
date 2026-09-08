@@ -28,6 +28,7 @@
 #include "LawnCommon.h"
 #include "System/Music.h"
 #include "System/SaveGame.h"
+#include "UnitTestRunner.h"
 #include "Widget/LawnDialog.h"
 #include "System/PlayerInfo.h"
 #include "System/PoolEffect.h"
@@ -315,6 +316,7 @@ int Board::CountUntriggerLawnMowers()
 
 void Board::TryToSaveGame()
 {
+	if (UnitTestRunner::active) return;
 	std::string aFileName = GetSavedGameName(mApp->mGameMode, mApp->mPlayerInfo->mId);
 
 	if (NeedSaveGame())
@@ -2105,6 +2107,13 @@ Plant* Board::AddPlant(int theGridX, int theGridY, SeedType theSeedType, SeedTyp
 		mMushroomsUsed = true;
 	}
 
+	if (ENABLE_LEFTPEATER_PLANTING_BURST &&
+		aPlant->mSeedType == SeedType::SEED_LEFTPEATER && aPlant->IsInPlay())
+	{
+		aPlant->FireLeftpeaterPlantingBurstShot();
+		aPlant->mStateCountdown = 51;
+	}
+
 	return aPlant;
 }
 
@@ -2330,6 +2339,7 @@ Projectile* Board::AddProjectile(int theX, int theY, int theRenderOrder, int the
 {
 	Projectile* aProjectile = mProjectiles.DataArrayAlloc();
 	aProjectile->ProjectileInitialize(theX, theY, theRenderOrder, theRow, theProjectileType);
+	if (UnitTestRunner::active) UnitTestRunner::active->ProjectileCreated(*aProjectile);
 	return aProjectile;
 }
 
@@ -4362,6 +4372,7 @@ void Board::PickUpTool(GameObjectType theObjectType)
 
 void Board::MouseDown(int x, int y, int theClickCount)
 {
+	if (UnitTestRunner::active) return;
 	UpdateMousePosition();
 	Widget::MouseDown(x, y, theClickCount);
 	mIgnoreMouseUp = !CanInteractWithBoardButtons();
@@ -4580,6 +4591,7 @@ bool Board::CanInteractWithBoardButtons()
 
 void Board::MouseUp(int x, int y, int theClickCount)
 {
+	if (UnitTestRunner::active) return;
 	Widget::MouseUp(x, y, theClickCount);
 	if (mIgnoreMouseUp)
 	{
@@ -5698,6 +5710,11 @@ void Board::Update()
 	MarkDirty();
 
 	mBoardUpdateCounter++;
+	if (UnitTestRunner::active)
+	{
+		UnitTestRunner::active->Update(*this);
+		return;
+	}
 	mCutScene->Update();
 	UpdateMousePosition();
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
@@ -7465,6 +7482,7 @@ void Board::Draw(Graphics* g)
 
 	mDrawCount++;
 	DrawGameObjects(g);
+	if (UnitTestRunner::active) UnitTestRunner::active->Draw(g);
 }
 
 void Board::SetMustacheMode(bool theEnableMustache)
@@ -7627,6 +7645,7 @@ void Board::DoTypingCheck(KeyCode theKey)
 
 void Board::KeyDown(KeyCode theKey)
 {
+	if (UnitTestRunner::active) return;
 	DoTypingCheck(theKey);
 
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO &&
@@ -7671,6 +7690,7 @@ static void PvzpCrash()
 
 void Board::KeyChar(char theChar)
 {
+	if (UnitTestRunner::active) return;
 	if (!mApp->mDebugKeysEnabled)
 		return;
 

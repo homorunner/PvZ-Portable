@@ -942,8 +942,34 @@ void Plant::StarFruitFire()
 	}
 }
 
+void Plant::FireLeftpeaterPlantingBurstShot()
+{
+	EndBlink();
+	Reanimation* aHeadReanim = mApp->ReanimationTryToGet(mHeadReanimID);
+	if (aHeadReanim && aHeadReanim->TrackExists("anim_shooting"))
+	{
+		aHeadReanim->PlayReanim("anim_shooting", ReanimLoopType::REANIM_PLAY_ONCE_AND_HOLD, 20, 45.0f);
+		// Only poll animation completion; the projectile is fired immediately below.
+		mShootingCounter = 1;
+	}
+	Fire(nullptr, mRow, PlantWeapon::WEAPON_PRIMARY);
+}
+
 void Plant::UpdateShooter()
 {
+	// UpdateAbilities decrements this timer first; match Gatling's 17/16/17-tick spacing.
+	if (ENABLE_LEFTPEATER_PLANTING_BURST &&
+		mSeedType == SeedType::SEED_LEFTPEATER && mStateCountdown > 0)
+	{
+		if (mStateCountdown == 34 || mStateCountdown == 18 || mStateCountdown == 1)
+		{
+			FireLeftpeaterPlantingBurstShot();
+			if (mStateCountdown == 1)
+				mLaunchCounter = 150;
+		}
+		return;
+	}
+
 	mLaunchCounter--;
 	if (mLaunchCounter <= 0)
 	{

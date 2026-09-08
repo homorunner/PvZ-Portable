@@ -37,6 +37,7 @@
 #include "PvzpLib/Trail.h"
 #include "Lawn/System/Music.h"
 #include "Lawn/System/SaveGame.h"
+#include "UnitTestRunner.h"
 #include "PvzpLib/PvzpDebug.h"
 #include "PvzpLib/PvzpFoley.h"
 #include "PvzpLib/Attachment.h"
@@ -1147,6 +1148,7 @@ void LawnApp::ShowResourceError(bool doExit)
 void LawnApp::Init()
 {
 	DoParseCmdLine();
+	if (UnitTestRunner::active) UnitTestRunner::active->Configure(*this);
 	if (!mCheatKeys)
 	{
 		mOnlyAllowOneCopyToRun = true;
@@ -1277,6 +1279,7 @@ bool LawnApp::DebugKeyDown(int theKey)
 
 void LawnApp::HandleCmdLineParam(std::string_view theParamName, std::string_view theParamValue)
 {
+	if (theParamName == "-unittest") return;
 	if (theParamName == "-cheat")
 	{
 #ifdef PVZ_DEBUG
@@ -1593,7 +1596,12 @@ void LawnApp::UpdateFrames()
 
 		mMusic->MusicUpdate();
 
-		CheckForGameEnd();
+		if (UnitTestRunner::active)
+		{
+			UnitTestRunner::active->AfterFrame(*this);
+			if (mShutdown) break;
+		}
+		else CheckForGameEnd();
 	}
 }
 
@@ -1719,6 +1727,7 @@ void LawnApp::FastLoad(GameMode theGameMode)
 
 void LawnApp::LoadingThreadCompleted()
 {
+	if (UnitTestRunner::active) LoadingCompleted();
 }
 
 void LawnApp::LoadingCompleted()
@@ -1730,6 +1739,11 @@ void LawnApp::LoadingCompleted()
 	SafeDeleteWidget(mTitleScreen.release());
 
 	mResourceManager->DeleteImage("IMAGE_TITLESCREEN");
+	if (UnitTestRunner::active)
+	{
+		UnitTestRunner::active->Start(*this);
+		return;
+	}
 
 	// The menu normally creates the first profile; direct entry needs one too.
 	if (mPlayerInfo == nullptr)

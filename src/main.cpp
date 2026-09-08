@@ -20,6 +20,7 @@
  */
 
 #include "LawnApp.h"
+#include "UnitTestRunner.h"
 #include "Resources.h"
 #include "PvzpLib/PvzpStringFile.h"
 #include <cstdlib>
@@ -96,6 +97,9 @@ int main(int argc, char** argv)
 	gExtractResourcesByName = Sexy::ExtractResourcesByName;
 	gLawnApp = new LawnApp();
 	gLawnApp->SetArgs(argc, argv);
+	std::unique_ptr<UnitTestRunner> tests;
+	for (int i = 1; i < argc; ++i)
+		if (std::string_view(argv[i]) == "-unittest" && !tests) tests = std::make_unique<UnitTestRunner>();
 	gLawnApp->Init();
 	gLawnApp->Start();
 #ifndef __EMSCRIPTEN__
@@ -103,5 +107,5 @@ int main(int argc, char** argv)
 	delete gLawnApp;
 #endif
 
-	return 0;
+	return tests ? tests->ExitStatus() : 0;
 };
