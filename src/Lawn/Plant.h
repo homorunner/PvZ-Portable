@@ -211,6 +211,7 @@ public:
 	bool                    mIsAsleep;
 	bool                    mIsOnBoard;
 	bool                    mHighlighted;
+	int32_t                 mPeashooterShotCount = 0;
 
 public:
 	Plant();

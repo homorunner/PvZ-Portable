@@ -28,6 +28,10 @@ constexpr const double PI = 3.141592653589793;
 inline bool ENABLE_LEFTPEATER_PLANTING_BURST = true;
 inline bool ENABLE_PLANTERN_HEALING = true;
 inline bool ENABLE_PLANTERN_GREEN_VASE = true;
+inline bool ENABLE_PEASHOOTER_EMPOWERED_PEA = true;
+
+// Normal 47-frame walk loops sample 46 ground intervals; see UnitTestRunner.md.
+constexpr float EMPOWERED_PEA_KNOCKBACK = 0.8f * 0.30f * 47.0f * 47.0f / 46.0f;
 
 // Constants
 constexpr const int BOARD_WIDTH = 800;

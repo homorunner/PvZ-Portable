@@ -62,6 +62,7 @@ Projectile::~Projectile()
 
 void Projectile::ProjectileInitialize(int theX, int theY, int theRenderOrder, int theRow, ProjectileType theProjectileType)
 {
+	mEmpoweredPea = false;
 	int aGridX = mBoard->PixelToGridXKeepOnBoard(theX, theY);
 	mProjectileType = theProjectileType;
 	mPosX = theX;
@@ -496,7 +497,7 @@ void Projectile::DoSplashDamage(Zombie* theZombie)
 			unsigned int aDamageFlags = GetDamageFlags(aZombie);
 			if (aZombie == theZombie)
 			{
-				aZombie->TakeDamage(aOriginalDamage, aDamageFlags);
+				aZombie->TakeDamage(mEmpoweredPea ? aOriginalDamage * 3 / 2 : aOriginalDamage, aDamageFlags);
 			}
 			else
 			{
@@ -836,7 +837,17 @@ void Projectile::DoImpact(Zombie* theZombie)
 	else if (theZombie)
 	{
 		unsigned int aDamageFlags = GetDamageFlags(theZombie);
-		theZombie->TakeDamage(GetProjectileDef().mDamage, aDamageFlags);
+		const int aDamage = GetProjectileDef().mDamage;
+		theZombie->TakeDamage(mEmpoweredPea ? aDamage * 3 / 2 : aDamage, aDamageFlags);
+	}
+	if (mEmpoweredPea && theZombie && !theZombie->IsDeadOrDying())
+	{
+		float aDistance = EMPOWERED_PEA_KNOCKBACK;
+		if (theZombie->mZombieType == ZombieType::ZOMBIE_GARGANTUAR ||
+			theZombie->mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
+			aDistance *= 0.5f;
+		theZombie->mPosX += theZombie->IsWalkingBackwards() ? -aDistance : aDistance;
+		theZombie->mX = static_cast<int>(theZombie->mPosX);
 	}
 
 	float aLastPosX = mPosX - mVelX;
@@ -977,7 +988,7 @@ void Projectile::Draw(Graphics* g)
 	const ProjectileDefinition& aProjectileDef = GetProjectileDef();
 
 	Image* aImage = nullptr;
-	float aScale = 1.0f;
+	float aScale = GetVisualScale();
 	switch (mProjectileType)
 	{
 	case ProjectileType::PROJECTILE_COBBIG:
@@ -1203,13 +1214,16 @@ void Projectile::ConvertToFireball(int theGridX)
 	mHitTorchwoodGridX = theGridX;
 	mApp->PlayFoley(FoleyType::FOLEY_FIREPEA);
 
-	float aOffsetX = -25.0f;
-	float aOffsetY = -25.0f;
+	const float aScale = GetVisualScale();
+	// Scale about the fire pea's local (40, 40) center, preserving its 1x anchor.
+	float aOffsetX = -25.0f + 40.0f * (1.0f - aScale);
+	float aOffsetY = -25.0f + 40.0f * (1.0f - aScale);
 	Reanimation* aFirePeaReanim = mApp->AddReanimation(0.0f, 0.0f, 0, ReanimationType::REANIM_FIRE_PEA);
+	aFirePeaReanim->OverrideScale(aScale, aScale);
 	if (mMotionType == ProjectileMotion::MOTION_BACKWARDS)
 	{
-		aFirePeaReanim->OverrideScale(-1.0f, 1.0f);
-		aOffsetX += 80.0f;
+		aFirePeaReanim->OverrideScale(-aScale, aScale);
+		aOffsetX += 80.0f * aScale;
 	}
 
 	aFirePeaReanim->SetPosition(mPosX + aOffsetX, mPosY + aOffsetY);

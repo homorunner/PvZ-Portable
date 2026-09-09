@@ -107,6 +107,7 @@ Plant::Plant()
 
 void Plant::PlantInitialize(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType)
 {
+	mPeashooterShotCount = 0;
 	mPlantCol = theGridX;
 	mRow = theGridY;
 	if (mBoard)
@@ -4733,6 +4734,11 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 
 	Projectile* aProjectile = mBoard->AddProjectile(aOriginX, aOriginY, mRenderOrder - 1, theRow, aProjectileType);
 	aProjectile->mDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
+	if (mSeedType == SeedType::SEED_PEASHOOTER)
+	{
+		mPeashooterShotCount = (mPeashooterShotCount + 1) % 3;
+		aProjectile->mEmpoweredPea = ENABLE_PEASHOOTER_EMPOWERED_PEA && mPeashooterShotCount == 0;
+	}
 
 	if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||
 		mSeedType == SeedType::SEED_MELONPULT || mSeedType == SeedType::SEED_WINTERMELON)

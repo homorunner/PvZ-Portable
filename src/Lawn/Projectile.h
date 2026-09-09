@@ -73,6 +73,7 @@ public:
 	int32_t                 mCobTargetRow;
 	ZombieID                mTargetZombieID;
 	int32_t                 mLastPortalX;
+	bool                    mEmpoweredPea = false;
 
 public:
 	Projectile();
@@ -81,6 +82,7 @@ public:
 	void                    ProjectileInitialize(int theX, int theY, int theRenderOrder, int theRow, ProjectileType theProjectileType);
 	void                    Update();
 	void                    Draw(Graphics* g);
+	float                   GetVisualScale() const { return mEmpoweredPea ? 1.5f : 1.0f; }
 	void                    DrawShadow(Graphics* g);
 	void                    Die();
 	void                    DoImpact(Zombie* theZombie);
