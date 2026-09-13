@@ -4240,6 +4240,8 @@ void Challenge::PuzzleNextStageClear()
 		}
 	}
 	mBoard->RefreshSeedPacketFromCursor();
+	if (LawnApp::IsEndlessScaryPotter(mApp->mGameMode))
+		mBoard->mSeedBank->RefreshAllPackets();
 	{
 		for (Coin* aCoin : mBoard->mCoins)
 		{

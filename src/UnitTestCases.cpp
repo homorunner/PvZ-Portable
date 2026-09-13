@@ -6,6 +6,7 @@
 #include "Lawn/GridItem.h"
 #include "Lawn/Plant.h"
 #include "Lawn/Projectile.h"
+#include "Lawn/SeedPacket.h"
 #include "Lawn/Zombie.h"
 #include "Lawn/System/PlayerInfo.h"
 #include "Lawn/System/SaveGame.h"
@@ -641,6 +642,41 @@ void SetupGreenVases(UnitTestRunner& runner, LawnApp& app)
 	runner.Finish();
 }
 
+void SetupVaseCooldowns(UnitTestRunner& runner, LawnApp& app)
+{
+	app.mGameMode = GAMEMODE_SCARY_POTTER_ENDLESS;
+	app.MakeNewBoard();
+	Board& board = *app.mBoard;
+	board.InitLevel();
+	app.mGameScene = SCENE_PLAYING;
+	constexpr std::array seeds{SEED_CHERRYBOMB, SEED_PEASHOOTER, SEED_WALLNUT};
+	board.mSeedBank->mNumPackets = static_cast<int>(seeds.size());
+	for (bool endless : {true, false})
+	{
+		app.mGameMode = endless ? GAMEMODE_SCARY_POTTER_ENDLESS : GAMEMODE_SCARY_POTTER_1;
+		for (int i = 0; i < static_cast<int>(seeds.size()); ++i)
+		{
+			SeedPacket& packet = board.mSeedBank->mSeedPackets[i];
+			packet.SetPacketType(seeds[i]);
+			packet.mRefreshing = i != 2;
+			packet.mActive = i == 2;
+			packet.mRefreshCounter = i == 2 ? 0 : 100;
+		}
+		const int stage = board.mChallenge->mSurvivalStage;
+		board.mChallenge->PuzzleNextStageClear();
+		runner.Check(board.mChallenge->mSurvivalStage == stage + 1, "Vase transition advances one stage");
+		for (int i = 0; i < static_cast<int>(seeds.size()); ++i)
+		{
+			const SeedPacket& packet = board.mSeedBank->mSeedPackets[i];
+			const bool ready = endless || i == 2;
+			runner.Check(packet.mPacketType == seeds[i] && packet.mActive == ready &&
+				packet.mRefreshing == !ready && packet.mRefreshCounter == (ready ? 0 : 100),
+				std::format("Vase cooldown endless={} slot={}: correct readiness and unchanged plant", endless, i));
+		}
+	}
+	runner.Finish();
+}
+
 void SetupBurst(UnitTestRunner& runner, LawnApp& app)
 {
 	ENABLE_LEFTPEATER_PLANTING_BURST = true;
@@ -759,6 +795,7 @@ void UpdateBurst(UnitTestRunner& runner, Board& board)
 
 void RegisterLawnTests(UnitTestRunner& runner)
 {
+	runner.Register({"vase endless stage cooldowns", SetupVaseCooldowns, nullptr, nullptr, 1});
 	runner.Register({"threepeater mixed lanes and in-flight acquisition", SetupThreepeater<false>, UpdateThreepeater<false>, ThreepeaterShot, 650});
 	runner.Register({"threepeater Torchwood homing", SetupThreepeater<true>, UpdateThreepeater<true>, nullptr, 650});
 	runner.Register({"threepeater scope and persistence", SetupThreepeaterScope, nullptr, nullptr, 1});
