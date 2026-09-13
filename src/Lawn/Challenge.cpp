@@ -3195,7 +3195,9 @@ void Challenge::UpdatePortal(GridItem* thePortal)
 	{
 		if (aProjectile->mDead)
 			continue;
-		if (aProjectile->mMotionType == MOTION_STRAIGHT && aProjectile->mRow == thePortal->mGridY && aProjectile->mLastPortalX != thePortal->mGridX)
+		if ((aProjectile->mMotionType == MOTION_STRAIGHT ||
+			(aProjectile->mMotionType == MOTION_THREEPEATER && aProjectile->mVelY == 0.0f)) &&
+			aProjectile->mRow == thePortal->mGridY && aProjectile->mLastPortalX != thePortal->mGridX)
 		{
 			Rect aProjectileRect = aProjectile->GetProjectileRect();
 			int aProjectileX = aProjectileRect.mX + aProjectileRect.mWidth / 2;

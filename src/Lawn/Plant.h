@@ -225,6 +225,8 @@ public:
 	void                    Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
 	void                    FireLeftpeaterPlantingBurstShot();
 	Zombie*                 FindTargetZombie(int theRow, PlantWeapon thePlantWeapon = PlantWeapon::WEAPON_PRIMARY);
+	static Zombie*          FindCattailTarget(Board* theBoard, float theX, float theY);
+	static constexpr int    CATTAIL_DAMAGE_RANGE_FLAGS = 11;
 	void                    Die();
 	void                    UpdateProductionPlant();
 	void                    UpdateShooter();

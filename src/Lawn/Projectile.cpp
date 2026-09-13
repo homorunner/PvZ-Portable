@@ -196,7 +196,8 @@ Plant* Projectile::FindCollisionTargetPlant()
 
 bool Projectile::PeaAboutToHitTorchwood()
 {
-	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT)
+	if (mMotionType != ProjectileMotion::MOTION_STRAIGHT &&
+		!(mMotionType == ProjectileMotion::MOTION_THREEPEATER && mVelY == 0.0f))
 		return false;
 
 	if (mProjectileType != ProjectileType::PROJECTILE_PEA && mProjectileType != ProjectileType::PROJECTILE_SNOWPEA)
@@ -640,6 +641,31 @@ void Projectile::UpdateLobMotion()
 
 void Projectile::UpdateNormalMotion()
 {
+	if (mMotionType == ProjectileMotion::MOTION_THREEPEATER && ENABLE_THREEPEATER_HOMING)
+	{
+		// mRow is the assigned firing lane until homing starts, even during fan-out.
+		bool aRowOccupied = false;
+		for (Zombie* aZombie : mBoard->mZombies)
+		{
+			if (!aZombie->mDead && (aZombie->mRow == mRow || aZombie->mZombieType == ZombieType::ZOMBIE_BOSS) &&
+				aZombie->EffectedByDamage(mDamageRangeFlags))
+			{
+				aRowOccupied = true;
+				break;
+			}
+		}
+		if (!aRowOccupied)
+		{
+			if (Zombie* aTarget = Plant::FindCattailTarget(mBoard, mPosX + mWidth / 2, mPosY + mHeight / 2))
+			{
+				mTargetZombieID = mBoard->ZombieGetID(aTarget);
+				mDamageRangeFlags = Plant::CATTAIL_DAMAGE_RANGE_FLAGS;
+				mVelX = 2.0f;
+				mMotionType = ProjectileMotion::MOTION_HOMING;
+			}
+		}
+	}
+
 	if (mMotionType == ProjectileMotion::MOTION_BACKWARDS)
 	{
 		mPosX -= 3.33f;
@@ -823,6 +849,9 @@ void Projectile::PlayImpactSound(Zombie* theZombie)
 
 void Projectile::DoImpact(Zombie* theZombie)
 {
+	// Homing can hit across lane boundaries; fire splash belongs to the impact lane.
+	if (mMotionType == ProjectileMotion::MOTION_HOMING && mProjectileType == ProjectileType::PROJECTILE_FIREBALL && theZombie)
+		mRow = theZombie->mRow;
 	PlayImpactSound(theZombie);
 
 	if (IsSplashDamage(theZombie))
@@ -980,6 +1009,10 @@ void Projectile::Update()
 	mRotation += mRotationSpeed;
 
 	UpdateMotion();
+	// Cross-lane peas fly above lawn objects, not behind a later row's vases.
+	if (mMotionType == ProjectileMotion::MOTION_HOMING &&
+		(mProjectileType == ProjectileType::PROJECTILE_PEA || mProjectileType == ProjectileType::PROJECTILE_FIREBALL))
+		mRenderOrder = Board::MakeRenderOrder(RenderLayer::RENDER_LAYER_TOP, 0, 0);
 	AttachmentUpdateAndMove(mAttachmentID, mPosX, mPosY + mPosZ);
 }
 

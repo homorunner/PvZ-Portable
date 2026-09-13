@@ -164,5 +164,103 @@ $p.Refresh()
 $p.ExitCode
 ```
 
-Verified with the existing MSVC build: 11 cases passed, 0 failed, 5,034
-checks; process exit code 0. Results are in `build-msvc/unittest.log`.
+Results are in `build-msvc/unittest.log`.
+
+## Threepeater Homing
+
+Homing peas and fire peas render in `RENDER_LAYER_TOP`, above every lawn
+row's vases but below fog and UI. This is applied after movement so it
+also covers the first homing frame. Ordinary peas and Cattail spikes
+retain their original render layers.
+
+`ENABLE_THREEPEATER_HOMING` in `GameConstants.h` is an independent, mutable
+inline bool, default true. When disabled, empty-lane peas keep their original
+straight fan-out path and original row-based render layer; emission and the
+normal attack trigger are otherwise unchanged. The switch is read per tick,
+so it affects in-flight peas immediately. The normal attack
+trigger is unchanged: Threepeater still needs a target in one of its three
+firing lanes to start a volley. Each emitted pea independently checks its
+assigned lane before every movement tick, including during the initial
+fan-out and after Torchwood conversion. Any living enemy eligible for its
+ordinary damage flags in that lane keeps it on its original trajectory,
+even if that enemy is behind the pea. A damageable boss counts in every
+lane. Dying, mind-controlled, submerged, underground and flying enemies
+do not keep an ordinary pea flying straight; existing damage eligibility
+also excludes off-board and temporarily invulnerable enemies.
+
+When the lane is empty, `Plant::FindCattailTarget` selects from the same
+attack rectangle and damage flags (11) as Cattail. Both Cattail and the new
+ability call this one selector: integer-truncated Euclidean distance,
+flying priority bonus 10,000, first candidate on equal weights. Cattail
+measures from its plant center as before; a Threepeater pea measures from
+its current projectile center. A flying-only lane can therefore trigger
+homing onto its own balloon. No eligible target anywhere means no state
+change: the pea keeps its original flight and retries each tick until it
+finds a target or leaves the board. If the lane becomes occupied first,
+it continues ordinary flight.
+
+Acquisition permanently switches the pea to existing `MOTION_HOMING`, with
+Cattail's 2-pixel/tick speed, age-dependent steering and target-only
+cross-row collision. Initial fan-out Y velocity is retained as the initial
+steering direction. Ordinary peas retain their image, size and 20 damage;
+they are not converted into Cattail spikes or empowered peas. The damage
+eligibility switches to Cattail's flags so airborne targets can actually
+be hit. An acquired target dying, disappearing or becoming ineligible
+does not cause retargeting: as with Cattail, the projectile coasts along its
+last velocity. Returning enemies in the original lane do not cancel homing.
+
+Torchwood uses its existing lane/overlap conversion, before or after
+acquisition, without losing motion or lock. Fire peas retain normal 40
+damage and fire effects. Homing fire impact sets the splash lane to the
+target's lane, avoiding a missed direct hit at lane boundaries. The center
+pea retains its prior Torchwood collision look-ahead and portal eligibility;
+side peas and homing shots retain their previous portal exclusion. A portal
+changes the center pea's assigned lane to its destination, as it already
+did for collision purposes. Other pea sources and Cattail movement are
+unchanged.
+
+All three launch directions now use existing `MOTION_THREEPEATER`; center
+shots have zero Y velocity. This motion previously identified side shots
+throughout their lifetime, not just during fan-out, so no new persistent
+field, motion enum, TLV or save version is needed. Existing serialized motion,
+lane, target, velocity and damage flags fully preserve the ability. In older
+saves, already-flying side shots gain the ability; already-flying center
+shots remain ordinary because their old `MOTION_STRAIGHT` cannot reliably
+identify their source. Newly emitted center shots qualify normally.
+
+Three new cases consolidate the Threepeater coverage:
+
+- A real animated volley combines an initially empty upper lane, an occupied
+  center lane and a lower lane emptied during flight. All three peas must
+  collide with the center target for 60 total damage. The mixed-flight check
+  runs at tick 60, after animated emission and before removing the lower target.
+- A center pea crosses real Torchwood before its lane empties, then homes
+  across rows for 40 fire damage.
+- The scope/save case checks targetless flight followed by acquisition,
+  sandbox save/load of both flight states, resumed acquisition and lost-lock
+  behavior. It excludes Peashooter, Repeater, Gatling Pea, Snow Pea, both
+  Split Pea directions and Leftpeater; checks ground distance, tie order and
+  mind-control exclusion; and combines same-lane balloon priority, Torchwood
+  overlap after acquisition and a real balloon-popping collision. Repositioning
+  into Torchwood preserves the pea's height above its shadow. The hit must
+  consume 20 flying health and 20 body health, enter the popping phase and
+  leave the nearer ground enemy untouched. `IsFlying()` remains true during
+  popping until the zombie animation advances, unlike these projectile-only updates.
+  It finally disables `ENABLE_THREEPEATER_HOMING` and confirms an empty-lane
+  pea stays `MOTION_THREEPEATER`, alive and row-layered over 120 updates,
+  then restores the toggle.
+
+The first two cases run 600 real board ticks each; the scope/save case drives
+selected real object updates synchronously. No user saves or profiles are
+modified. The suite has 14 registered cases: all 11 pre-existing cases plus
+these three Threepeater cases.
+
+Roof, pool, high-gravity and portal gameplay are not covered by new automated
+scenarios; they retain existing movement/terrain rules. No pixel-level visual
+comparison or historical save fixture was run.
+
+Verified the consolidated suite with the existing `build-msvc` via the VS
+developer shell and a bounded `-unittest` run: 14 passed, 0 failed, 5,181
+checks, process exit code 0. Both per-frame render-order checks passed, as
+did the corrected mixed-volley and balloon-collision checks. All 11 older
+cases remain included. `git diff --check` also passed.

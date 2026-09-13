@@ -630,7 +630,7 @@ int Plant::GetDamageRangeFlags(PlantWeapon thePlantWeapon)
 	case SeedType::SEED_CHOMPER:
 		return 9;
 	case SeedType::SEED_CATTAIL:
-		return 11;
+		return CATTAIL_DAMAGE_RANGE_FLAGS;
 	case SeedType::SEED_TANGLEKELP:
 		return 5;
 	case SeedType::SEED_GIANT_WALLNUT:
@@ -4785,15 +4785,14 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 	}
 	else if (mSeedType == SeedType::SEED_THREEPEATER)
 	{
+		aProjectile->mMotionType = ProjectileMotion::MOTION_THREEPEATER;
 		if (theRow < mRow)
 		{
-			aProjectile->mMotionType = ProjectileMotion::MOTION_THREEPEATER;
 			aProjectile->mVelY = -3.0f;
 			aProjectile->mShadowY += 80.0f;
 		}
 		else if (theRow > mRow)
 		{
-			aProjectile->mMotionType = ProjectileMotion::MOTION_THREEPEATER;
 			aProjectile->mVelY = 3.0f;
 			aProjectile->mShadowY -= 80.0f;
 		}
@@ -4829,8 +4828,34 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 	}
 }
 
+Zombie* Plant::FindCattailTarget(Board* theBoard, float theX, float theY)
+{
+	const Rect aAttackRect(-BOARD_WIDTH, -BOARD_HEIGHT, BOARD_WIDTH * 2, BOARD_HEIGHT * 2);
+	Zombie* aBestZombie = nullptr;
+	int aHighestWeight = 0;
+	for (Zombie* aZombie : theBoard->mZombies)
+	{
+		if (aZombie->mDead || !aZombie->EffectedByDamage(CATTAIL_DAMAGE_RANGE_FLAGS))
+			continue;
+		const Rect aZombieRect = aZombie->GetZombieRect();
+		if (GetRectOverlap(aAttackRect, aZombieRect) < 0)
+			continue;
+		int aWeight = -Distance2D(theX, theY, aZombieRect.mX + aZombieRect.mWidth / 2, aZombieRect.mY + aZombieRect.mHeight / 2);
+		if (aZombie->IsFlying())
+			aWeight += 10000;
+		if (aBestZombie == nullptr || aWeight > aHighestWeight)
+		{
+			aHighestWeight = aWeight;
+			aBestZombie = aZombie;
+		}
+	}
+	return aBestZombie;
+}
+
 Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
 {
+	if (mSeedType == SeedType::SEED_CATTAIL)
+		return FindCattailTarget(mBoard, mX + 40.0f, mY + 40.0f);
 	int aDamageRangeFlags = GetDamageRangeFlags(thePlantWeapon);
 	Rect aAttackRect = GetPlantAttackRect(thePlantWeapon);
 	int aHighestWeight = 0;
@@ -4863,26 +4888,23 @@ Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
 			}
 		}
 
-		if (mSeedType != SeedType::SEED_CATTAIL)
+		if (mSeedType == SeedType::SEED_GLOOMSHROOM)
 		{
-			if (mSeedType == SeedType::SEED_GLOOMSHROOM)
-			{
-				if (aRowDeviation < -1 || aRowDeviation > 1)
-				{
-					continue;
-				}
-			}
-			else if (needPortalCheck)
-			{
-				if (!mBoard->mChallenge->CanTargetZombieWithPortals(this, aZombie))
-				{
-					continue;
-				}
-			}
-			else if (aRowDeviation)
+			if (aRowDeviation < -1 || aRowDeviation > 1)
 			{
 				continue;
 			}
+		}
+		else if (needPortalCheck)
+		{
+			if (!mBoard->mChallenge->CanTargetZombieWithPortals(this, aZombie))
+			{
+				continue;
+			}
+		}
+		else if (aRowDeviation)
+		{
+			continue;
 		}
 
 		if (aZombie->EffectedByDamage(aDamageRangeFlags))
@@ -4946,14 +4968,6 @@ Zombie* Plant::FindTargetZombie(int theRow, PlantWeapon thePlantWeapon)
 			}
 
 			int aWeight = -aZombieRect.mX;
-			if (mSeedType == SeedType::SEED_CATTAIL)
-			{
-				aWeight = -Distance2D(mX + 40.0f, mY + 40.0f, aZombieRect.mX + aZombieRect.mWidth / 2, aZombieRect.mY + aZombieRect.mHeight / 2);
-				if (aZombie->IsFlying())
-				{
-					aWeight += 10000;
-				}
-			}
 
 			if (aBestZombie == nullptr || aWeight > aHighestWeight)
 			{

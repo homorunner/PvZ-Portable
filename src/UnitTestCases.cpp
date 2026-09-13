@@ -33,6 +33,238 @@ std::array<ZombieID, 5> peaTargets;
 std::array<int, 5> peaShots;
 bool savedEmpowered;
 
+std::array<unsigned int, 3> threePeas;
+std::array<ZombieID, 5> threeTargets;
+bool threeHomed, threeFire;
+bool threeRenderOrder;
+
+Zombie* AddThreeTarget(Board& board, int row, ZombieType type = ZOMBIE_NORMAL)
+{
+	Zombie* zombie = board.AddZombieInRow(type, row, 0);
+	zombie->mPosX = zombie->mX = 600;
+	zombie->mVelX = 0;
+	zombie->SetAnimRate(0);
+	zombie->mBodyHealth = zombie->mBodyMaxHealth = 1000;
+	zombie->mDroppedLoot = true;
+	threeTargets[row] = board.ZombieGetID(zombie);
+	return zombie;
+}
+
+Plant* SetupThreepeaterBoard(LawnApp& app)
+{
+	app.mGameMode = GAMEMODE_ADVENTURE;
+	app.mPlayerInfo->mLevel = 11;
+	app.MakeNewBoard();
+	Board& board = *app.mBoard;
+	board.InitLevel();
+	app.mGameScene = SCENE_PLAYING;
+	board.mMouseVisible = false;
+	threePeas.fill(0);
+	threeTargets.fill(ZombieID::ZOMBIEID_NULL);
+	threeHomed = threeFire = false;
+	threeRenderOrder = true;
+	Plant* plant = board.AddPlant(1, 2, SEED_THREEPEATER);
+	plant->mLaunchCounter = 10000;
+	return plant;
+}
+
+template<bool fire>
+void SetupThreepeater(UnitTestRunner&, LawnApp& app)
+{
+	Plant* plant = SetupThreepeaterBoard(app);
+	Board& board = *app.mBoard;
+	AddThreeTarget(board, 2);
+	if constexpr (fire)
+	{
+		AddThreeTarget(board, 4);
+		board.AddPlant(2, 2, SEED_TORCHWOOD);
+		plant->Fire(nullptr, 2);
+	}
+	else
+	{
+		AddThreeTarget(board, 3);
+		plant->LaunchThreepeater(); // Empty upper lane, occupied center and lower lanes.
+	}
+}
+
+void ThreepeaterShot(UnitTestRunner&, const Projectile& pea)
+{
+	++threePeas[pea.mRow - 1];
+}
+
+template<bool fire>
+void UpdateThreepeater(UnitTestRunner& runner, Board& board)
+{
+	int homing = 0, straight = 0;
+	for (Projectile* pea : board.mProjectiles)
+	{
+		homing += pea->mMotionType == MOTION_HOMING;
+		straight += pea->mMotionType == MOTION_THREEPEATER;
+		threeHomed |= pea->mMotionType == MOTION_HOMING;
+		threeFire |= pea->mProjectileType == PROJECTILE_FIREBALL;
+		threeRenderOrder &= pea->mRenderOrder == Board::MakeRenderOrder(
+			pea->mMotionType == MOTION_HOMING ? RENDER_LAYER_TOP : RENDER_LAYER_PROJECTILE,
+			pea->mMotionType == MOTION_HOMING ? 0 : pea->mRow, 0);
+		if (runner.Tick() < 60 && (fire || pea->mMotionType != MOTION_HOMING))
+			runner.Check(pea->mMotionType == MOTION_THREEPEATER && pea->mDamageRangeFlags == 1,
+				"Occupied lanes retain original flight and ground flags before removal");
+	}
+	if constexpr (!fire)
+		if (runner.Tick() == 60) // After animated emission, before the lower lane empties.
+			runner.Check(homing == 1 && straight == 2,
+				"Mixed volley has one homing pea and two occupied-lane ordinary peas");
+	if (runner.Tick() == 60)
+	{
+		if constexpr (fire)
+		{
+			runner.Check(threeFire, "Real Torchwood converted the straight center pea before lane emptied");
+			board.ZombieTryToGet(threeTargets[2])->DieNoLoot();
+		}
+		else board.ZombieTryToGet(threeTargets[3])->DieNoLoot();
+	}
+	if (runner.Tick() != 600) return;
+	if constexpr (!fire)
+	{
+		for (unsigned int count : threePeas)
+			runner.Check(count == 1, "Animated volley emitted exactly one pea in this firing lane");
+		runner.Check(board.ZombieTryToGet(threeTargets[2])->mBodyHealth == 940,
+			"Center target received straight, initially empty and emptied-in-flight lane hits");
+	}
+	else
+		runner.Check(board.ZombieTryToGet(threeTargets[4])->mBodyHealth == 960, "Homing fire pea dealt 40 damage in target lane");
+	runner.Check(threeHomed, "Empty firing lane transitioned to homing");
+	runner.Check(threeRenderOrder, "Homing peas render above all vase rows immediately; ordinary peas keep their row layer");
+	runner.Finish();
+}
+
+void SetupThreepeaterScope(UnitTestRunner& runner, LawnApp& app)
+{
+	Plant* three = SetupThreepeaterBoard(app);
+	Board* board = app.mBoard;
+	three->Fire(nullptr, 2);
+	for (Projectile* pea : board->mProjectiles)
+	{
+		const float startX = pea->mPosX;
+		for (int tick = 0; tick < 20; ++tick) pea->Update();
+		runner.Check(pea->mMotionType == MOTION_THREEPEATER && pea->mPosX > startX && !pea->mDead &&
+			pea->mTargetZombieID == ZombieID::ZOMBIEID_NULL, "No target: keep flying without acquiring an invalid lock");
+	}
+	AddThreeTarget(*board, 1);
+	for (Projectile* pea : board->mProjectiles) pea->Update();
+	three->Fire(nullptr, 1);
+	const std::string path = app.mCustomSaveDir + "/threepeater-test.dat";
+	runner.Check(LawnSaveGame(board, path), "Save straight/fan-out and homing threepeater states using existing fields");
+	app.MakeNewBoard();
+	board = app.mBoard;
+	const bool loaded = LawnLoadGame(board, path);
+	runner.Check(loaded, "Reload threepeater projectiles without new save fields");
+	if (loaded)
+	{
+		int homing = 0, pending = 0;
+		for (Projectile* pea : board->mProjectiles)
+		{
+			if (pea->mMotionType == MOTION_HOMING)
+			{
+				++homing;
+				runner.Check(pea->mTargetZombieID == threeTargets[1] && pea->mDamageRangeFlags == 11,
+					"Save retained homing target and balloon flags");
+			}
+			if (pea->mMotionType == MOTION_THREEPEATER)
+			{
+				++pending;
+				runner.Check(pea->mRow == 1 && pea->mVelY == -3, "Save retained assigned lane and fan-out velocity");
+			}
+		}
+		runner.Check(homing == 1 && pending == 1, "Both threepeater flight states survived save/load");
+		board->ZombieTryToGet(threeTargets[1])->DieNoLoot();
+		AddThreeTarget(*board, 4);
+		for (Projectile* pea : board->mProjectiles)
+		{
+			const bool wasPending = pea->mMotionType == MOTION_THREEPEATER;
+			pea->Update();
+			runner.Check(pea->mMotionType == MOTION_HOMING && pea->mTargetZombieID == threeTargets[wasPending ? 4 : 1] &&
+				std::isfinite(pea->mPosX) && std::isfinite(pea->mPosY),
+				"Loaded pending shot acquires; loaded lost lock retains Cattail behavior");
+		}
+	}
+	board->mProjectiles.DataArrayFreeAll();
+	for (SeedType seed : {SEED_PEASHOOTER, SEED_REPEATER, SEED_GATLINGPEA, SEED_SNOWPEA, SEED_SPLITPEA, SEED_LEFTPEATER})
+	{
+		Plant* plant = board->AddPlant(1, 0, seed);
+		plant->Fire(nullptr, 0);
+		if (seed == SEED_SPLITPEA) plant->Fire(nullptr, 0, WEAPON_SECONDARY);
+		for (Projectile* pea : board->mProjectiles)
+		{
+			const auto motion = pea->mMotionType;
+			for (int tick = 0; tick < 30; ++tick) pea->Update();
+			runner.Check(pea->mMotionType == motion && motion != MOTION_HOMING && motion != MOTION_THREEPEATER,
+				std::format("Other pea source {} keeps original motion despite empty firing lane", static_cast<int>(seed)));
+		}
+		board->mProjectiles.DataArrayFreeAll();
+	}
+	Plant* cattail = board->AddPlant(1, 3, SEED_CATTAIL);
+	runner.Check(cattail->FindTargetZombie(3) == Plant::FindCattailTarget(board, cattail->mX + 40, cattail->mY + 40),
+		"Cattail plant delegates to the shared targeting function");
+	board->mZombies.DataArrayFreeAll();
+	Zombie* nearZombie = AddThreeTarget(*board, 2);
+	Zombie* farZombie = AddThreeTarget(*board, 4);
+	runner.Check(Plant::FindCattailTarget(board, 500, nearZombie->mY + 40) == nearZombie, "Shared selector chooses nearest eligible ground enemy");
+	nearZombie->mMindControlled = true;
+	runner.Check(Plant::FindCattailTarget(board, 500, nearZombie->mY + 40) == farZombie, "Shared selector excludes mind-controlled enemies");
+	nearZombie->mMindControlled = false;
+	Zombie* tie = AddThreeTarget(*board, 2);
+	runner.Check(Plant::FindCattailTarget(board, 500, nearZombie->mY + 40) == nearZombie, "Equal integer-distance weights retain first candidate, like Cattail");
+	tie->DieNoLoot();
+	nearZombie->DieNoLoot();
+	farZombie->DieNoLoot();
+	Zombie* balloon = AddThreeTarget(*board, 2, ZOMBIE_BALLOON);
+	Zombie* ground = AddThreeTarget(*board, 1);
+	ground->mPosX = ground->mX = 300;
+	Plant* threePlant = board->AddPlant(1, 2, SEED_THREEPEATER);
+	runner.Check(balloon->IsFlying() && Plant::FindCattailTarget(board, threePlant->mX + 40, threePlant->mY + 40) == balloon,
+		"Shared targeting prioritizes airborne balloon over nearer ground enemy");
+	threePlant->Fire(nullptr, 2);
+	Plant* torch = board->AddPlant(1, 2, SEED_TORCHWOOD);
+	for (Projectile* pea : board->mProjectiles)
+	{
+		pea->Update();
+		runner.Check(pea->mMotionType == MOTION_HOMING && pea->mTargetZombieID == board->ZombieGetID(balloon),
+			"Flying-only assigned row is empty for ordinary peas and activates homing");
+		const Rect rect = torch->GetPlantAttackRect(WEAPON_PRIMARY);
+		// Move the shadow with the pea so the fixture does not create a ground impact.
+		pea->mShadowY += rect.mY + 20 - pea->mPosY;
+		pea->mPosX = pea->mX = rect.mX;
+		pea->mPosY = pea->mY = rect.mY + 20;
+		pea->mRow = 2;
+		torch->UpdateTorchwood();
+		runner.Check(pea->mProjectileType == PROJECTILE_FIREBALL && pea->mMotionType == MOTION_HOMING &&
+			pea->mTargetZombieID == board->ZombieGetID(balloon) && pea->mDamageRangeFlags == 11,
+			"Real Torchwood overlap after homing preserves lock, flight and flying eligibility");
+		for (int tick = 0; tick < 600 && !pea->mDead; ++tick) pea->Update();
+		// IsFlying stays true until the pop animation completes; only projectiles update here.
+		runner.Check(pea->mDead && balloon->mZombiePhase == PHASE_BALLOON_POPPING &&
+			balloon->mFlyingHealth == 0 && balloon->mBodyHealth == 980 && ground->mBodyHealth == 1000,
+			"Homing fire hit spends 20 damage popping balloon and 20 on body, bypassing nearer ground enemy");
+	}
+	// Disabling the toggle leaves empty-lane peas flying their original straight path.
+	board->mProjectiles.DataArrayFreeAll();
+	board->mZombies.DataArrayFreeAll();
+	ENABLE_THREEPEATER_HOMING = false;
+	Plant* disabled = board->AddPlant(3, 2, SEED_THREEPEATER);
+	if (disabled)
+		disabled->Fire(nullptr, 2);
+	for (Projectile* pea : board->mProjectiles)
+	{
+		const int lane = pea->mRow;
+		for (int tick = 0; tick < 120; ++tick) pea->Update();
+		runner.Check(pea->mMotionType == MOTION_THREEPEATER && !pea->mDead && pea->mRow == lane &&
+			pea->mRenderOrder == Board::MakeRenderOrder(RENDER_LAYER_PROJECTILE, lane, 0),
+			"Disabled homing keeps empty-lane peas straight and row-layered");
+	}
+	ENABLE_THREEPEATER_HOMING = true;
+	runner.Finish();
+}
+
 template<bool enabled>
 void SetupEmpowered(UnitTestRunner& runner, LawnApp& app)
 {
@@ -527,6 +759,9 @@ void UpdateBurst(UnitTestRunner& runner, Board& board)
 
 void RegisterLawnTests(UnitTestRunner& runner)
 {
+	runner.Register({"threepeater mixed lanes and in-flight acquisition", SetupThreepeater<false>, UpdateThreepeater<false>, ThreepeaterShot, 650});
+	runner.Register({"threepeater Torchwood homing", SetupThreepeater<true>, UpdateThreepeater<true>, nullptr, 650});
+	runner.Register({"threepeater scope and persistence", SetupThreepeaterScope, nullptr, nullptr, 1});
 	runner.Register({"fire pea alignment", SetupFirePeaAlignment, nullptr, nullptr, 1});
 	runner.Register({"empowered peashooter", SetupEmpowered<true>, UpdateEmpowered<true>, nullptr, 1100});
 	runner.Register({"empowered peashooter disabled", SetupEmpowered<false>, UpdateEmpowered<false>, nullptr, 1100});
