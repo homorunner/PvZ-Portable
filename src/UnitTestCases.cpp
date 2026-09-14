@@ -13,6 +13,8 @@
 #include "PvzpLib/Reanimator.h"
 #include "PvzpLib/Attachment.h"
 #include "PvzpLib/ReanimAtlas.h"
+#include "PvzpLib/EffectSystem.h"
+#include "PvzpLib/PvzpParticle.h"
 #include "misc/Buffer.h"
 #include "zlib.h"
 #include <array>
@@ -67,6 +69,118 @@ Plant* SetupThreepeaterBoard(LawnApp& app)
 	Plant* plant = board.AddPlant(1, 2, SEED_THREEPEATER);
 	plant->mLaunchCounter = 10000;
 	return plant;
+}
+
+template<bool enabled>
+void SetupSquash(UnitTestRunner& runner, LawnApp& app)
+{
+	const bool saved = ENABLE_SQUASH_ENHANCEMENT;
+	SetupThreepeaterBoard(app);
+	Board& board = *app.mBoard;
+	Plant* squash = board.AddPlant(4, 2, SEED_SQUASH);
+	const Rect attack = squash->GetPlantAttackRect(WEAPON_PRIMARY);
+	runner.Check(attack.mWidth == 45, "Squash original attack width is 45 (enhanced width 50)");
+	for (bool left : {true, false})
+	for (int gap : {-1, 2, 3, 70, 71})
+	{
+		Zombie* zombie = AddThreeTarget(board, 2);
+		const Rect rect = zombie->GetZombieRect();
+		const int edge = left ? attack.mX - gap - rect.mWidth : attack.mX + attack.mWidth + gap;
+		zombie->mPosX = zombie->mX += edge - rect.mX;
+		zombie->mBodyHealth = zombie->mBodyMaxHealth = 10000;
+		ENABLE_SQUASH_ENHANCEMENT = false;
+		Zombie* originalTarget = squash->FindSquashTarget();
+		ENABLE_SQUASH_ENHANCEMENT = true;
+		runner.Check(squash->FindSquashTarget() == originalTarget,
+			std::format("Squash targeting unchanged: left={} gap={}", left, gap));
+		if (!left) runner.Check((originalTarget == zombie) == (gap <= 70), "Original 70-pixel targeting limit");
+		ENABLE_SQUASH_ENHANCEMENT = enabled;
+		squash->DoSquashDamage();
+		const bool hit = gap < 0 || (enabled && gap == 2);
+		runner.Check(zombie->mBodyHealth == 10000 - (hit ? 1800 : 0),
+			std::format("Squash damage enabled={} left={} gap={}", enabled, left, gap));
+		runner.Check(zombie->mStunCounter == 0, "Damage alone does not trigger landing stun");
+		zombie->DieNoLoot();
+	}
+
+	Zombie* upper = AddThreeTarget(board, 0);
+	Zombie* lower = AddThreeTarget(board, 4);
+	Zombie* boss = AddThreeTarget(board, 1, ZOMBIE_BOSS);
+	Zombie* longer = AddThreeTarget(board, 3);
+	longer->ApplyStun(80);
+	Zombie* ally = AddThreeTarget(board, 0);
+	ally->mMindControlled = true;
+	Zombie* dying = AddThreeTarget(board, 4);
+	dying->mZombiePhase = PHASE_ZOMBIE_DYING;
+	Zombie* dead = AddThreeTarget(board, 3);
+	dead->DieNoLoot();
+	auto stars = [&]()
+	{
+		int count = 0;
+		for (PvzpParticleSystem* particle : app.mEffectSystem->mParticleHolder->mParticleSystems)
+			if (!particle->mDead && particle->mEffectType == PARTICLE_STAR_SPLAT)
+			{
+				++count;
+				runner.Check(!particle->mIsAttachment, "Stun stars animate independently of frozen zombies");
+			}
+		return count;
+	};
+	const int beforeStars = stars();
+	squash->mTargetX = squash->mX;
+	squash->mState = STATE_SQUASH_FALLING;
+	for (int countdown : {5, 1, 0})
+	{
+		squash->mStateCountdown = countdown;
+		squash->UpdateSquash();
+		for (Zombie* zombie : {upper, lower, boss})
+			runner.Check(zombie->mStunCounter == (enabled && countdown == 0 ? 50 : 0),
+				std::format("Global landing stun enabled={} row={} countdown={}", enabled, zombie->mRow, countdown));
+	}
+	runner.Check(squash->mState == STATE_SQUASH_DONE_FALLING && squash->mStateCountdown == 100,
+		"Real landing completes the falling transition");
+	runner.Check(upper->mBodyHealth == 1000 && lower->mBodyHealth == 1000, "Distant rows stunned without squash damage");
+	runner.Check(ally->mStunCounter == 0 && dying->mStunCounter == 0 && dead->mStunCounter == 0,
+		"Landing excludes allies, dying and dead zombies");
+	for (Zombie* excluded : {ally, dying, dead}) excluded->ApplyStun(50);
+	runner.Check(ally->mStunCounter == 0 && dying->mStunCounter == 0 && dead->mStunCounter == 0,
+		"ApplyStun directly excludes allies, dying and dead zombies");
+	runner.Check(longer->mStunCounter == 80, "Landing never shortens an existing longer stun");
+	runner.Check(stars() == beforeStars + (enabled ? 3 : 0), "Only newly stunned enemies create star bursts");
+	if constexpr (enabled)
+	{
+		for (Zombie* zombie : {upper, lower, boss})
+		{
+			zombie->SetAnimRate(12);
+			zombie->mChilledCounter = 100;
+			zombie->mPhaseCounter = 200;
+			zombie->mJustGotShotCounter = 90;
+			const int age = zombie->mZombieAge;
+			const float x = zombie->mPosX, y = zombie->mPosY;
+			Reanimation* body = app.ReanimationTryToGet(zombie->mBodyReanimID);
+			const float animTime = body->mAnimTime;
+			for (int tick = 1; tick <= 50; ++tick)
+			{
+				zombie->Update();
+				runner.Check(zombie->mStunCounter == 50 - tick && zombie->mZombieAge == age &&
+					zombie->mPosX == x && zombie->mPosY == y && body->mAnimTime == animTime &&
+					zombie->mChilledCounter == 100 && zombie->mPhaseCounter == 200 && zombie->mJustGotShotCounter == 90,
+					std::format("Stun freezes movement, animation and timers: type={} update={}", static_cast<int>(zombie->mZombieType), tick));
+			}
+			zombie->Update();
+			runner.Check(zombie->mStunCounter == 0 && zombie->mZombieAge == age + 1 && zombie->mJustGotShotCounter == 89,
+				"Normal and boss updates resume on update 51, not 50");
+		}
+		upper->ApplyStun(20);
+		upper->ApplyStun(50);
+		upper->ApplyStun(10);
+		runner.Check(upper->mStunCounter == 50, "Repeated stun takes maximum duration, not sum or latest duration");
+		upper->mMindControlled = true;
+		const int age = upper->mZombieAge;
+		upper->Update();
+		runner.Check(upper->mStunCounter == 0 && upper->mZombieAge == age + 1, "Newly mind-controlled zombie discards stun and resumes");
+	}
+	ENABLE_SQUASH_ENHANCEMENT = saved;
+	runner.Finish();
 }
 
 template<bool fire>
@@ -795,6 +909,8 @@ void UpdateBurst(UnitTestRunner& runner, Board& board)
 
 void RegisterLawnTests(UnitTestRunner& runner)
 {
+	runner.Register({"squash enhancement", SetupSquash<true>, nullptr, nullptr, 1});
+	runner.Register({"squash enhancement disabled", SetupSquash<false>, nullptr, nullptr, 1});
 	runner.Register({"vase endless stage cooldowns", SetupVaseCooldowns, nullptr, nullptr, 1});
 	runner.Register({"threepeater mixed lanes and in-flight acquisition", SetupThreepeater<false>, UpdateThreepeater<false>, ThreepeaterShot, 650});
 	runner.Register({"threepeater Torchwood homing", SetupThreepeater<true>, UpdateThreepeater<true>, nullptr, 650});

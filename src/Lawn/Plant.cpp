@@ -1461,6 +1461,7 @@ void Plant::DoSquashDamage()
 {
 	int aDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
 	Rect aAttackRect = GetPlantAttackRect(PlantWeapon::WEAPON_PRIMARY);
+	const float padding = ENABLE_SQUASH_ENHANCEMENT ? 2.5f : 0.0f;
 
 	for (Zombie* aZombie : mBoard->mZombies)
 	{
@@ -1469,7 +1470,10 @@ void Plant::DoSquashDamage()
 		if ((aZombie->mRow == mRow || aZombie->mZombieType == ZombieType::ZOMBIE_BOSS) && aZombie->EffectedByDamage(aDamageRangeFlags))
 		{
 			Rect aZombieRect = aZombie->GetZombieRect();
-			if (GetRectOverlap(aAttackRect, aZombieRect) > (aZombie->mZombieType == ZombieType::ZOMBIE_FOOTBALL ? -20 : 0))
+			const float overlap = std::min(aAttackRect.mX + aAttackRect.mWidth + padding,
+				static_cast<float>(aZombieRect.mX + aZombieRect.mWidth)) -
+				std::max(aAttackRect.mX - padding, static_cast<float>(aZombieRect.mX));
+			if (overlap > (aZombie->mZombieType == ZombieType::ZOMBIE_FOOTBALL ? -20 : 0))
 			{
 				aZombie->TakeDamage(1800, 18U);
 			}
@@ -1606,6 +1610,11 @@ void Plant::UpdateSquash()
 
 			if (mStateCountdown == 0)
 			{
+				if (ENABLE_SQUASH_ENHANCEMENT)
+				{
+					for (Zombie* zombie : mBoard->mZombies)
+						zombie->ApplyStun(50);
+				}
 				if (mBoard->IsPoolSquare(aTargetCol, mRow))
 				{
 					mApp->AddReanimation(mX - 11, mY + 20, mRenderOrder + 1, ReanimationType::REANIM_SPLASH);

@@ -1472,6 +1472,8 @@ static void SyncDataArrayObjectsTLV(PortableSaveContext& theContext, DataArray<T
 				AppendFieldWithSync(aOut, 101U, [&](PortableSaveContext& c){ c.SyncInt32(anItem.mPeashooterShotCount); });
 			if constexpr (std::is_same_v<T, Projectile>)
 				AppendFieldWithSync(aOut, 101U, [&](PortableSaveContext& c){ c.SyncBool(anItem.mEmpoweredPea); });
+			if constexpr (std::is_same_v<T, Zombie>)
+				AppendFieldWithSync(aOut, 101U, [&](PortableSaveContext& c){ c.SyncInt32(anItem.mStunCounter); });
 		},
 		[&](uint32_t aFieldId, const unsigned char* aData, size_t aSize, T& anItem)
 		{
@@ -1485,6 +1487,12 @@ static void SyncDataArrayObjectsTLV(PortableSaveContext& theContext, DataArray<T
 				ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ theTailSync(c, anItem); });
 				break;
 			case 101U:
+				if constexpr (std::is_same_v<T, Zombie>)
+				{
+					if (!ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(anItem.mStunCounter); }) ||
+						anItem.mStunCounter < 0)
+						theContext.mFailed = true;
+				}
 				if constexpr (std::is_same_v<T, Plant>)
 				{
 					if (!ApplyFieldWithSync(aData, aSize, [&](PortableSaveContext& c){ c.SyncInt32(anItem.mPeashooterShotCount); }) ||
@@ -2684,6 +2692,8 @@ struct LegacyDataArrayItem
 			return (offsetof(Plant, mHighlighted) + sizeof(bool) + alignof(T) - 1) / alignof(T) * alignof(T);
 		else if constexpr (std::is_same_v<T, Projectile>)
 			return (offsetof(Projectile, mLastPortalX) + sizeof(int32_t) + alignof(T) - 1) / alignof(T) * alignof(T);
+		else if constexpr (std::is_same_v<T, Zombie>)
+			return (offsetof(Zombie, mLastPortalX) + sizeof(int32_t) + alignof(T) - 1) / alignof(T) * alignof(T);
 		else
 			return sizeof(T);
 	}();
@@ -2721,6 +2731,7 @@ template <typename T> inline static void SyncDataArray(SaveGameContext& theConte
 			// Old padding can overlap the newly appended members.
 			if constexpr (std::is_same_v<T, Plant>) anItem.mPeashooterShotCount = 0;
 			if constexpr (std::is_same_v<T, Projectile>) anItem.mEmpoweredPea = false;
+			if constexpr (std::is_same_v<T, Zombie>) anItem.mStunCounter = 0;
 		}
 	}
 }

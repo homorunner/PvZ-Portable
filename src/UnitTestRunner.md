@@ -264,3 +264,21 @@ developer shell and a bounded `-unittest` run: 14 passed, 0 failed, 5,181
 checks, process exit code 0. Both per-frame render-order checks passed, as
 did the corrected mixed-volley and balloon-collision checks. All 11 older
 cases remain included. `git diff --check` also passed.
+
+## Squash Regression Tests
+
+Two setup-only cases exercise `ENABLE_SQUASH_ENHANCEMENT` enabled and disabled,
+restoring its previous value. Real `DoSquashDamage` calls check both edges of
+the original 45-pixel rectangle: 2 pixels outside hits only when enabled,
+3 pixels outside misses, and interior overlap still deals 1800 damage.
+This guards the floating-point 2.5-pixel padding per edge (50 total),
+without changing `FindSquashTarget` or its 70-pixel non-eating trigger limit.
+
+Real `UpdateSquash` calls at falling countdowns 5, 1 and 0 distinguish damage
+from landing stun. Distant rows and the boss receive 50 only at landing;
+allies, dead and dying zombies are excluded, longer stuns are preserved,
+and newly stunned enemies produce unattached star particles. Fifty direct
+`Zombie::Update` calls freeze position, body animation, age and status timers,
+including the boss; update 51 resumes. Reapplication uses maximum duration,
+and becoming mind-controlled clears an existing stun. These synchronous
+tests do not cover wall-clock pause UI, pixel appearance or stun save/load.

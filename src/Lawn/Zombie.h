@@ -159,6 +159,7 @@ public:
 	ReanimationID                   mMoweredReanimID;
 	ReanimationID                   mZombatarHeadReanimID;
 	int32_t                         mLastPortalX;
+	int32_t                         mStunCounter = 0;
 
 public:
 	Zombie();
@@ -291,6 +292,7 @@ public:
 	void                            DrawButter(Graphics* g, const ZombieDrawPosition& theDrawPos);
 	bool                            IsImmobilizied();
 	void                            ApplyButter();
+	void                            ApplyStun(int duration);
 	float                           ZombieTargetLeadX(float theTime);
 	void                            UpdateZombieImp();
 	void                            SquishAllInSquare(int theX, int theY, ZombieAttackType theAttackType);

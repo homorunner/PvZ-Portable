@@ -176,6 +176,7 @@ void Zombie::ZombieInitialize(int theRow, ZombieType theType, bool theVariant, Z
 	mIceTrapCounter = 0;
 	mButteredCounter = 0;
 	mMindControlled = false;
+	mStunCounter = 0;
 	mBlowingAway = false;
 	mHasHead = true;
 	mHasArm = true;
@@ -4305,6 +4306,18 @@ void Zombie::Update()
 {
 	PVZP_ASSERT(!mDead);
 
+	if (IsDeadOrDying() || mMindControlled)
+	{
+		mStunCounter = 0;
+	}
+	else if (mStunCounter > 0)
+	{
+		--mStunCounter;
+		// Reanimations (including the boss ball) and attachments update below.
+		// Skip them without changing rates, and preserve existing status timers.
+		return;
+	}
+
 	mZombieAge++;
 	bool doUpdate = false;
 	if (mApp->mGameScene == GameScenes::SCENE_LEVEL_INTRO && mZombieType == ZombieType::ZOMBIE_BOSS)
@@ -6579,6 +6592,21 @@ void Zombie::CheckSquish(ZombieAttackType theAttackType)
 			mBoard->mChallenge->IZombieSquishBrain(aBrain);
 		}
 	}
+}
+
+void Zombie::ApplyStun(int duration)
+{
+	if (duration <= 0 || IsDeadOrDying() || mMindControlled)
+		return;
+
+	if (mStunCounter == 0)
+	{
+		Rect aRect = GetZombieRect();
+		// Unattached so the brief star burst can animate while the zombie cannot.
+		mApp->AddPvzpParticle(aRect.mX + aRect.mWidth * 0.5f, aRect.mY,
+			mRenderOrder + 1, ParticleEffect::PARTICLE_STAR_SPLAT);
+	}
+	mStunCounter = std::max(mStunCounter, duration);
 }
 
 bool Zombie::IsImmobilizied()
