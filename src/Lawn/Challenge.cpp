@@ -4150,6 +4150,8 @@ void Challenge::ScaryPotterOpenPot(GridItem* theScaryPot)
 	{
 	case SCARYPOT_SEED:
 		mBoard->AddCoin(aXPos + 20, aYPos, COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_PLANT)->mUsableSeedType = theScaryPot->mSeedType;
+		if (ENABLE_WALLNUT_DOUBLE_VASE_CARDS && theScaryPot->mSeedType == SEED_WALLNUT)
+			mBoard->AddCoin(aXPos + 60, aYPos, COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_PLANT)->mUsableSeedType = SEED_WALLNUT;
 		break;
 	case SCARYPOT_ZOMBIE:
 		mBoard->AddZombieInRow(theScaryPot->mZombieType, theScaryPot->mGridY, 0)->mPosX = aXPos;

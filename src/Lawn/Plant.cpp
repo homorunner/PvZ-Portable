@@ -511,7 +511,7 @@ int Plant::CalcRenderOrder()
 	if (mSeedType == SeedType::SEED_IMITATER && mImitaterType != SeedType::SEED_NONE)
 		aSeedType = mImitaterType;
 
-	if (mApp->IsWallnutBowlingLevel())
+	if (IsBowling())
 	{
 		aLayer = RenderLayer::RENDER_LAYER_PROJECTILE;
 	}
@@ -2423,8 +2423,15 @@ void Plant::Squish()
 	}
 }
 
+bool Plant::IsBowling()
+{
+	return mApp->IsWallnutBowlingLevel() || mState == PlantState::STATE_BOWLING_STRAIGHT ||
+		mState == PlantState::STATE_BOWLING_UP || mState == PlantState::STATE_BOWLING_DOWN;
+}
+
 void Plant::UpdateBowling()
 {
+	const int oldGroundY = static_cast<int>(mBoard->GetPosYBasedOnRow(mX, mRow));
 	Reanimation* aBodyReanim = mApp->ReanimationTryToGet(mBodyReanimID);
 	if (aBodyReanim && aBodyReanim->TrackExists("_ground"))
 	{
@@ -2436,8 +2443,13 @@ void Plant::UpdateBowling()
 
 		mX -= aSpeed;
 		if (mX > 800)
+		{
 			Die();
+			return;
+		}
 	}
+	const int groundY = static_cast<int>(mBoard->GetPosYBasedOnRow(mX, mRow));
+	mY += groundY - oldGroundY;
 
 	if (mState == PlantState::STATE_BOWLING_UP)
 	{
@@ -2447,16 +2459,17 @@ void Plant::UpdateBowling()
 	{
 		mY += 2;
 	}
-	int aDistToGrid = mBoard->GridToPixelY(0, mRow) - mY;
+	int aDistToGrid = groundY - mY;
 	if (aDistToGrid < -2 || aDistToGrid > 2)
 		return;
 
+	const int bottomRow = mBoard->StageHas6Rows() ? 5 : 4;
 	PlantState aNewState = mState;
 	if (mState == PlantState::STATE_BOWLING_UP && mRow <= 0)
 	{
 		aNewState = PlantState::STATE_BOWLING_DOWN;
 	}
-	else if (mState == PlantState::STATE_BOWLING_DOWN && mRow >= 4)
+	else if (mState == PlantState::STATE_BOWLING_DOWN && mRow >= bottomRow)
 	{
 		aNewState = PlantState::STATE_BOWLING_UP;
 	}
@@ -2485,13 +2498,16 @@ void Plant::UpdateBowling()
 		mApp->PlayFoley(FoleyType::FOLEY_BOWLINGIMPACT);
 		mBoard->ShakeBoard(1, -2);
 
+		const int impactDamage = aZombie->mZombieType == ZombieType::ZOMBIE_GARGANTUAR ||
+			aZombie->mZombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR ? 600 : 1800;
 		if (mSeedType == SeedType::SEED_GIANT_WALLNUT)
 		{
-			aZombie->TakeDamage(1800, 0U);
+			aZombie->TakeDamage(impactDamage, 0U);
 		}
-		else if (aZombie->mShieldType == ShieldType::SHIELDTYPE_DOOR && mState != PlantState::STATE_NOTREADY)
+		else if (aZombie->mShieldType == ShieldType::SHIELDTYPE_DOOR &&
+			(mState == PlantState::STATE_BOWLING_UP || mState == PlantState::STATE_BOWLING_DOWN))
 		{
-			aZombie->TakeDamage(1800, 0U);
+			aZombie->TakeDamage(impactDamage, 0U);
 		}
 		else if (aZombie->mShieldType != ShieldType::SHIELDTYPE_NONE)
 		{
@@ -2512,7 +2528,7 @@ void Plant::UpdateBowling()
 		}
 		else
 		{
-			aZombie->TakeDamage(1800, 0U);
+			aZombie->TakeDamage(impactDamage, 0U);
 		}
 
 		if ((!mApp->IsFirstTimeAdventureMode() || mApp->mPlayerInfo->GetLevel() > 10) && mSeedType == SeedType::SEED_WALLNUT)
@@ -2546,7 +2562,7 @@ void Plant::UpdateBowling()
 
 		if (mSeedType != SeedType::SEED_GIANT_WALLNUT)
 		{
-			if (mRow == 4 || mState == PlantState::STATE_BOWLING_DOWN)
+			if (mRow == bottomRow || mState == PlantState::STATE_BOWLING_DOWN)
 			{
 				aNewState = PlantState::STATE_BOWLING_UP;
 			}
@@ -2570,8 +2586,8 @@ void Plant::UpdateBowling()
 	else if (aNewState == PlantState::STATE_BOWLING_DOWN)
 	{
 		mState = PlantState::STATE_BOWLING_DOWN;
-		mRenderOrder = CalcRenderOrder();
 		mRow++;
+		mRenderOrder = CalcRenderOrder();
 	}
 }
 
@@ -2611,7 +2627,7 @@ void Plant::UpdateAbilities()
 	if (mStateCountdown > 0)
 		mStateCountdown--;
 
-	if (mApp->IsWallnutBowlingLevel())
+	if (IsBowling())
 	{
 		UpdateBowling();
 		return;
@@ -2944,6 +2960,8 @@ void Plant::Update()
 
 bool Plant::NotOnGround()
 {
+	if (!mApp->IsWallnutBowlingLevel() && IsBowling())
+		return true;
 	if (mSeedType == SeedType::SEED_SQUASH)
 	{
 		if (mState == PlantState::STATE_SQUASH_RISING || mState == PlantState::STATE_SQUASH_FALLING || mState == PlantState::STATE_SQUASH_DONE_FALLING)
@@ -3205,7 +3223,7 @@ void Plant::AnimateNuts()
 		aBodyReanim->SetImageOverride(aTrackToOverride, nullptr);
 	}
 
-	if (IsInPlay() && !mApp->IsIZombieLevel())
+	if (IsInPlay() && !mApp->IsIZombieLevel() && !IsBowling())
 	{
 		if (mRecentlyEatenCountdown > 0)
 		{
@@ -3602,6 +3620,8 @@ float PlantFlowerPotHeightOffset(SeedType theSeedType, float theFlowerPotScale)
 
 float PlantDrawHeightOffset(Board* theBoard, Plant* thePlant, SeedType theSeedType, int theCol, int theRow)
 {
+	if (thePlant && thePlant->IsBowling())
+		return 0.0f;
 	float aHeightOffset = 0.0f;
 	Plant* aFlowerPot = theBoard ? theBoard->GetFlowerPotAt(theCol, theRow) : nullptr;
 
@@ -4251,6 +4271,34 @@ void Plant::MouseDown(int x, int y, int theClickCount)
 {
 	if (theClickCount < 0)
 		return;
+
+	if (ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING && theClickCount == 2 && mSeedType == SeedType::SEED_WALLNUT &&
+		IsInPlay() && !mApp->IsIZombieLevel() && !IsBowling() && !NotOnGround() && mPlantHealth > 0 && !mIsAsleep &&
+		mOnBungeeState == PlantOnBungeeState::NOT_ON_BUNGEE && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
+		!mBoard->mPaused && mBoard->mBoardFadeOutCounter < 0 && mBoard->mTimeStopCounter == 0 &&
+		mApp->GetDialogCount() == 0 && mBoard->mCursorObject->mCursorType == CursorType::CURSOR_TYPE_NORMAL)
+	{
+		Reanimation* body = mApp->ReanimationTryToGet(mBodyReanimID);
+		if (!body || !body->TrackExists("_ground"))
+			return;
+
+		EndBlink();
+		mState = PlantState::STATE_BOWLING_STRAIGHT;
+		mLaunchCounter = 0;
+		mRecentlyEatenCountdown = 0;
+		mY = static_cast<int>(mBoard->GetPosYBasedOnRow(mX, mRow));
+		body->SetFramesForLayer("_ground");
+		body->mLoopType = ReanimLoopType::REANIM_LOOP;
+		body->mAnimRate = RandRangeFloat(12.0f, 18.0f);
+		mRenderOrder = CalcRenderOrder();
+		if (GridItem* ladder = mBoard->GetLadderAt(mPlantCol, mRow))
+			ladder->GridItemDie();
+		Plant* pot = mBoard->GetFlowerPotAt(mPlantCol, mRow);
+		if (pot && mBoard->GetTopPlantAt(mPlantCol, mRow, PlantPriority::TOPPLANT_BUNGEE_ORDER) == pot)
+			mApp->ReanimationGet(pot->mBodyReanimID)->mAnimRate = RandRangeFloat(10.0f, 15.0f);
+		mApp->PlaySample(SOUND_BOWLING);
+		return;
+	}
 
 	if (mState == PlantState::STATE_COBCANNON_READY)
 	{
@@ -5027,7 +5075,7 @@ void Plant::Die()
 	mDead = true;
 	RemoveEffects();
 
-	if (!Plant::IsFlying(mSeedType) && IsOnBoard())
+	if (!Plant::IsFlying(mSeedType) && IsOnBoard() && !IsBowling())
 	{
 		GridItem* aLadder = mBoard->GetLadderAt(mPlantCol, mRow);
 		if (aLadder)
@@ -5036,7 +5084,7 @@ void Plant::Die()
 		}
 	}
 
-	if (IsOnBoard())
+	if (IsOnBoard() && !IsBowling())
 	{
 		Plant* aTopPlant = mBoard->GetTopPlantAt(mPlantCol, mRow, PlantPriority::TOPPLANT_BUNGEE_ORDER);
 		Plant* aFlowerPot = mBoard->GetFlowerPotAt(mPlantCol, mRow);
@@ -5245,7 +5293,7 @@ Rect Plant::GetPlantRect()
 Rect Plant::GetPlantAttackRect(PlantWeapon thePlantWeapon)
 {
 	Rect aRect;
-	if (mApp->IsWallnutBowlingLevel())
+	if (IsBowling())
 	{
 		aRect = Rect(mX, mY, mWidth - 20, mHeight);
 	}

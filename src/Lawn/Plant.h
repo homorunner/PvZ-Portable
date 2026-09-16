@@ -96,7 +96,8 @@ enum PlantState : int32_t
 	STATE_ZEN_GARDEN_HAPPY,
 	STATE_MARIGOLD_ENDING,
 	STATE_FLOWERPOT_INVULNERABLE,
-	STATE_LILYPAD_INVULNERABLE
+	STATE_LILYPAD_INVULNERABLE,
+	STATE_BOWLING_STRAIGHT
 };
 
 enum PLANT_LAYER : int32_t
@@ -287,6 +288,7 @@ public:
 	void                    MagnetShroomAttactItem(Zombie* theZombie);
 	void                    UpdateSunShroom();
 	void                    UpdateBowling();
+	bool                    IsBowling();
 	void                    AnimatePumpkin();
 	void                    UpdateBlover();
 	void                    UpdateCactus();

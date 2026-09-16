@@ -17,6 +17,7 @@ struct UnitTestCase
 	void (*update)(UnitTestRunner&, Board&);
 	void (*projectile)(UnitTestRunner&, const Projectile&);
 	int timeoutTicks;
+	int ticksPerUpdate = 1;
 };
 
 class UnitTestRunner

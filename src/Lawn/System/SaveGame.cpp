@@ -2739,7 +2739,9 @@ template <typename T> inline static void SyncDataArray(SaveGameContext& theConte
 static void SyncBoard(SaveGameContext& theContext, Board* theBoard)
 {
 	size_t offset = size_t(&theBoard->mPaused) - size_t(theBoard);
-	theContext.SyncBytes(&theBoard->mPaused, sizeof(Board) - offset);
+	const size_t legacySize = (offsetof(Board, mChocolateCollected) + sizeof(uint32_t) + alignof(Board) - 1) / alignof(Board) * alignof(Board);
+	theContext.SyncBytes(&theBoard->mPaused, legacySize - offset);
+	if (theContext.mReading) theBoard->mLastClickedPlantID = PlantID::PLANTID_NULL;
 
 	SyncDataArray(theContext, theBoard->mZombies);
 	SyncDataArray(theContext, theBoard->mPlants);
@@ -2800,6 +2802,7 @@ static void SyncBoard(SaveGameContext& theContext, Board* theBoard)
 
 bool LawnLoadGame(Board* theBoard, const std::string& theFilePath)
 {
+	theBoard->mLastClickedPlantID = PlantID::PLANTID_NULL;
 	if (LawnLoadGameV4(theBoard, theFilePath))
 	{
 		PvzpLogLn("Loaded save game (v4)");

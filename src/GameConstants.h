@@ -31,6 +31,8 @@ inline bool ENABLE_PLANTERN_GREEN_VASE = true;
 inline bool ENABLE_PEASHOOTER_EMPOWERED_PEA = true;
 inline bool ENABLE_THREEPEATER_HOMING = true;
 inline bool ENABLE_SQUASH_ENHANCEMENT = true;
+inline bool ENABLE_WALLNUT_DOUBLE_VASE_CARDS = true;
+inline bool ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = true;
 
 // Normal 47-frame walk loops sample 46 ground intervals; see UnitTestRunner.md.
 constexpr float EMPOWERED_PEA_KNOCKBACK = 0.8f * 0.30f * 47.0f * 47.0f / 46.0f;

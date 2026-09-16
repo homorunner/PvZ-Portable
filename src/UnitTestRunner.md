@@ -16,7 +16,11 @@ projectile collisions and effects at the normal 10 ms simulation tick.
 
 Add cases to `RegisterLawnTests` in `UnitTestCases.cpp`. Each registry entry
 has setup, post-update and optional projectile-created callbacks, plus a
-tick timeout. Setup must create a fresh board and reset its case state.
+tick timeout, and optional `ticksPerUpdate` (default 1). The two animated
+Threepeater cases use 2 ticks per update for 2x playback: all 600 simulation
+ticks and per-tick assertions remain, but each case takes about 3 rather than
+6 seconds. Other tests and normal gameplay speed are unchanged.
+Setup must create a fresh board and reset its case state.
 Call `Check` for assertions and `Finish` when observation is complete.
 Failures are accumulated and subsequent cases still run serially.
 `Finish` only records the result. Case transitions and shutdown run in
@@ -282,3 +286,39 @@ and newly stunned enemies produce unattached star particles. Fifty direct
 including the boss; update 51 resumes. Reapplication uses maximum duration,
 and becoming mind-controlled clears an existing stun. These synchronous
 tests do not cover wall-clock pause UI, pixel appearance or stun save/load.
+
+## Wallnut Cards And Bowling
+
+`ENABLE_WALLNUT_DOUBLE_VASE_CARDS` and `ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING`
+are independent, default-on switches in `GameConstants.h`. The first makes
+each normal wallnut vase release two separately usable cards, spaced 40 pixels
+apart. Other vase contents and the number of vases remain unchanged.
+
+The second lets a left double click launch an already planted normal wallnut,
+including a transformed Imitater, using the original bowling animation,
+contact damage, ricochets and chain-hit rewards. I, Zombie cardboard props and
+Zen Garden plants are excluded. Board input requires the preceding single
+click to have reached the same plant; planting, collecting a card, shoveling,
+right/middle clicking, and clicking another plant do not qualify. The nut
+vacates its cell and leaves any lily pad, flower pot or pumpkin behind.
+Disabling the switch prevents new launches but does not stop existing rollers.
+
+Direct bowling impacts deal 600 damage to both Gargantuar types globally,
+including giant wallnuts in the original bowling minigames, regardless of
+either switch. Other targets retain the original body/helmet/shield rules.
+Explode-o-nut explosions are unchanged.
+
+Five setup-only regression cases cover enabled/disabled vase counts, separate
+card cancellation and planting, real Board click dispatch, excluded inputs
+and plants, movement, freed occupancy, zombie targeting, offscreen cleanup,
+projectile layering, global damage in both ordinary and bowling levels, and
+straight-versus-ricochet door shielding. Synthetic mouse-down calls temporarily
+lift the runner's live-input guard without pumping events. Pool and roof cases
+use actual level initialization and check slopes, six-row bounds, support
+detachment, and straight/bounced save-load continuation.
+
+Rolling identity uses an appended `STATE_BOWLING_STRAIGHT` plus the existing
+up/down states, all serialized by the existing plant tail. Existing state
+numbers and plant layouts are unchanged. The legacy Board byte span is frozen
+at its original aligned end; click history is never restored. Tests exercise
+portable saves, not an archived legacy binary fixture or visual appearance.

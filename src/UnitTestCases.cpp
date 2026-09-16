@@ -3,6 +3,8 @@
 #include "LawnApp.h"
 #include "Lawn/Board.h"
 #include "Lawn/Challenge.h"
+#include "Lawn/Coin.h"
+#include "Lawn/CursorObject.h"
 #include "Lawn/GridItem.h"
 #include "Lawn/Plant.h"
 #include "Lawn/Projectile.h"
@@ -69,6 +71,254 @@ Plant* SetupThreepeaterBoard(LawnApp& app)
 	Plant* plant = board.AddPlant(1, 2, SEED_THREEPEATER);
 	plant->mLaunchCounter = 10000;
 	return plant;
+}
+
+void ClickPlant(Board& board, Plant* plant, int count)
+{
+	// Synchronous synthetic input only; no event pumping while the live-input guard is lifted.
+	UnitTestRunner* active = UnitTestRunner::active;
+	UnitTestRunner::active = nullptr;
+	board.MouseDown(plant->mX + 40, plant->mY + 40, count);
+	UnitTestRunner::active = active;
+}
+
+template<bool enabled>
+void SetupWallnutVases(UnitTestRunner& runner, LawnApp& app)
+{
+	const bool saved = ENABLE_WALLNUT_DOUBLE_VASE_CARDS;
+	ENABLE_WALLNUT_DOUBLE_VASE_CARDS = enabled;
+	app.mGameMode = GAMEMODE_SCARY_POTTER_ENDLESS;
+	app.MakeNewBoard();
+	Board& board = *app.mBoard;
+	board.InitLevel();
+	app.mGameScene = SCENE_PLAYING;
+	GridItem* nutVase = nullptr;
+	GridItem* peaVase = nullptr;
+	for (GridItem* vase : board.mGridItems)
+	{
+		if (vase->mScaryPotType != SCARYPOT_SEED) continue;
+		if (vase->mSeedType == SEED_WALLNUT) nutVase = vase;
+		if (vase->mSeedType == SEED_PEASHOOTER) peaVase = vase;
+	}
+	runner.Check(nutVase && peaVase, "Real endless inventory contains wallnut and peashooter vases");
+	if (nutVase && peaVase)
+	{
+		board.mChallenge->ScaryPotterOpenPot(nutVase);
+		std::vector<Coin*> cards;
+		for (Coin* coin : board.mCoins)
+			if (!coin->mDead && coin->mType == COIN_USABLE_SEED_PACKET && coin->mUsableSeedType == SEED_WALLNUT)
+				cards.push_back(coin);
+		runner.Check(nutVase->mDead && cards.size() == (enabled ? 2U : 1U),
+			std::format("Wallnut vase enabled={}: correct independently allocated card count", enabled));
+		if (cards.size() == 2)
+			runner.Check(std::abs(cards[0]->mPosX - cards[1]->mPosX) >= 40, "Two cards spawn separated horizontally");
+		int row = 0;
+		for (Coin* card : cards)
+		{
+			card->Collect();
+			board.ClearCursor();
+			runner.Check(!card->mDead, "Cancelling a wallnut card does not consume it");
+			card->Collect();
+			board.MouseDownWithPlant(board.GridToPixelX(0, row) + 40, board.GridToPixelY(0, row) + 40, 1);
+			Plant* nut = board.GetTopPlantAt(0, row++, TOPPLANT_ONLY_NORMAL_POSITION);
+			runner.Check(card->mDead && nut && nut->mSeedType == SEED_WALLNUT && !nut->IsBowling(),
+				"Each card independently plants one stationary wallnut");
+		}
+		board.mChallenge->ScaryPotterOpenPot(peaVase);
+		int peas = 0;
+		for (Coin* coin : board.mCoins)
+			peas += !coin->mDead && coin->mType == COIN_USABLE_SEED_PACKET && coin->mUsableSeedType == SEED_PEASHOOTER;
+		runner.Check(peas == 1, "Other seed vases still drop one card");
+	}
+	ENABLE_WALLNUT_DOUBLE_VASE_CARDS = saved;
+	runner.Finish();
+}
+
+void SetupWallnutInput(UnitTestRunner& runner, LawnApp& app)
+{
+	SetupThreepeaterBoard(app);
+	Board& board = *app.mBoard;
+	const bool saved = ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING;
+	Plant* nut = board.AddPlant(3, 2, SEED_WALLNUT);
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = false;
+	ClickPlant(board, nut, 1);
+	ClickPlant(board, nut, 2);
+	runner.Check(!nut->IsBowling(), "Disabled double click leaves wallnut planted");
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = true;
+	ClickPlant(board, nut, 2);
+	runner.Check(!nut->IsBowling(), "Double click without preceding click on this plant cannot launch");
+	for (int count : {1, -1, 3}) ClickPlant(board, nut, count);
+	ClickPlant(board, nut, 2);
+	runner.Check(!nut->IsBowling(), "Single, right and middle clicks cannot launch or arm a double click");
+	Plant* other = board.AddPlant(4, 2, SEED_WALLNUT);
+	ClickPlant(board, nut, 1);
+	ClickPlant(board, other, 2);
+	runner.Check(!other->IsBowling(), "Two different plants do not make a double click");
+	board.mPaused = true;
+	ClickPlant(board, nut, 1);
+	ClickPlant(board, nut, 2);
+	runner.Check(!nut->IsBowling(), "Paused board rejects launches");
+	board.mPaused = false;
+	ClickPlant(board, other, 1);
+	board.mCursorObject->mCursorType = CURSOR_TYPE_SHOVEL;
+	ClickPlant(board, other, 2);
+	runner.Check(other->mDead && !other->IsBowling(), "Double click with shovel still digs instead of bowling");
+	board.ClearCursor();
+	for (bool grabbed : {false, true})
+	{
+		nut->mSquished = !grabbed;
+		nut->mOnBungeeState = grabbed ? GETTING_GRABBED_BY_BUNGEE : NOT_ON_BUNGEE;
+		ClickPlant(board, nut, 1);
+		ClickPlant(board, nut, 2);
+		runner.Check(!nut->IsBowling(), "Squished or bungee-grabbed wallnuts cannot launch");
+	}
+	nut->mSquished = false;
+	nut->mOnBungeeState = NOT_ON_BUNGEE;
+	for (SeedType seed : {SEED_TALLNUT, SEED_EXPLODE_O_NUT, SEED_PEASHOOTER})
+	{
+		Plant* excluded = board.AddPlant(5, 1, seed);
+		ClickPlant(board, excluded, 1);
+		ClickPlant(board, excluded, 2);
+		runner.Check(!excluded->IsBowling(), "Only normal wallnuts can launch");
+		excluded->Die();
+	}
+	nut->mPlantHealth = 1000;
+	nut->mRecentlyEatenCountdown = 50;
+	nut->AnimateNuts();
+	ClickPlant(board, nut, 1);
+	ClickPlant(board, nut, 2);
+	runner.Check(nut->mState == STATE_BOWLING_STRAIGHT && nut->mPlantHealth == 1000 &&
+		app.ReanimationGet(nut->mBodyReanimID)->mAnimRate >= 12, "Double click starts damaged nut straight with bowling animation");
+	runner.Check(nut->mRenderOrder == board.MakeRenderOrder(RENDER_LAYER_PROJECTILE, 2, PLANT_ORDER_NORMAL * 5 - nut->mX + 800),
+		"Launched nut uses bowling projectile render layer");
+	runner.Check(board.GetTopPlantAt(3, 2, TOPPLANT_ONLY_NORMAL_POSITION) == nullptr &&
+		board.CanPlantAt(3, 2, SEED_WALLNUT) == PLANTING_OK, "Rolling immediately frees the planting cell");
+	Zombie* zombie = AddThreeTarget(board, 2);
+	runner.Check(!zombie->CanTargetPlant(nut, ATTACKTYPE_CHEW), "Moving wallnut is no longer zombie food");
+	const int x = nut->mX;
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = false;
+	for (int tick = 0; tick < 10; ++tick) nut->Update();
+	runner.Check(nut->mX > x && nut->mRow == 2 && zombie->mBodyHealth == 1000,
+		"Roller keeps moving straight after disabling toggle, without hitting distant zombies");
+	Plant* replacement = board.AddPlant(3, 2, SEED_WALLNUT);
+	GridItem* ladder = board.AddALadder(3, 2);
+	nut->mX = 801;
+	nut->UpdateBowling();
+	runner.Check(nut->mDead && !replacement->mDead && !ladder->mDead,
+		"Offscreen cleanup does not remove replacement plants or their ladders");
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = saved;
+	runner.Finish();
+}
+
+void SetupBowlingDamage(UnitTestRunner& runner, LawnApp& app)
+{
+	SetupThreepeaterBoard(app);
+	Board& board = *app.mBoard;
+	const bool saved = ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING;
+	for (bool stock : {false, true})
+	for (SeedType seed : {SEED_WALLNUT, SEED_GIANT_WALLNUT})
+	for (ZombieType type : {ZOMBIE_NORMAL, ZOMBIE_GARGANTUAR, ZOMBIE_REDEYE_GARGANTUAR})
+	{
+		if (!stock && seed == SEED_GIANT_WALLNUT) continue;
+		app.mGameMode = stock ? GAMEMODE_CHALLENGE_WALLNUT_BOWLING : GAMEMODE_ADVENTURE;
+		ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = !stock;
+		Plant* nut = board.AddPlant(3, 2, seed);
+		if (!stock) nut->MouseDown(0, 0, 2);
+		ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = false;
+		Zombie* zombie = AddThreeTarget(board, 2, type);
+		zombie->mBodyHealth = zombie->mBodyMaxHealth = 5000;
+		const Rect rect = zombie->GetZombieRect();
+		zombie->mPosX = zombie->mX += nut->mX + 20 - rect.mX;
+		nut->UpdateBowling();
+		runner.Check(zombie->mBodyHealth == 5000 - (type == ZOMBIE_NORMAL ? 1800 : 600),
+			std::format("Global bowling damage: stock={} seed={} zombie={}", stock, static_cast<int>(seed), static_cast<int>(type)));
+		if (seed == SEED_WALLNUT)
+			runner.Check(nut->mRow != 2 && (nut->mState == STATE_BOWLING_UP || nut->mState == STATE_BOWLING_DOWN),
+				"Normal nut ricochets to the adjacent row after contact");
+		nut->Die();
+		zombie->DieNoLoot();
+	}
+	for (bool stock : {false, true})
+	for (bool bounced : {false, true})
+	{
+		app.mGameMode = stock ? GAMEMODE_CHALLENGE_WALLNUT_BOWLING : GAMEMODE_ADVENTURE;
+		ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = true;
+		Plant* nut = board.AddPlant(3, 2, SEED_WALLNUT);
+		if (!stock) nut->MouseDown(0, 0, 2);
+		if (bounced) nut->mState = STATE_BOWLING_DOWN;
+		Zombie* zombie = AddThreeTarget(board, 2, ZOMBIE_DOOR);
+		zombie->mBodyHealth = zombie->mBodyMaxHealth = 5000;
+		zombie->mShieldHealth = zombie->mShieldMaxHealth = 5000;
+		const Rect rect = zombie->GetZombieRect();
+		zombie->mPosX = zombie->mX += nut->mX + 20 - rect.mX;
+		nut->UpdateBowling();
+		runner.Check(zombie->mBodyHealth == 5000 && zombie->mShieldHealth == (bounced ? 3200 : 4600),
+			std::format("Door shield: stock={} bounced={}; straight deals 400, ricochet deals 1800", stock, bounced));
+		nut->Die();
+		zombie->DieNoLoot();
+	}
+	app.mGameMode = GAMEMODE_ADVENTURE;
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = saved;
+	runner.Finish();
+}
+
+void SetupBowlingTerrainAndSave(UnitTestRunner& runner, LawnApp& app)
+{
+	const bool saved = ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING;
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = true;
+	for (int level : {21, 41})
+	{
+		app.mGameMode = GAMEMODE_ADVENTURE;
+		app.mPlayerInfo->mLevel = level;
+		app.MakeNewBoard();
+		Board* board = app.mBoard;
+		board->InitLevel();
+		app.mGameScene = SCENE_PLAYING;
+		const bool roof = board->StageHasRoof();
+		const int bottom = board->StageHas6Rows() ? 5 : 4;
+		runner.Check(roof == (level == 41) && bottom == (level == 21 ? 5 : 4), "Real pool/roof terrain fixture");
+		Plant* support = board->AddPlant(2, 2, roof ? SEED_FLOWERPOT : SEED_LILYPAD);
+		Plant* nut = board->AddPlant(2, 2, SEED_WALLNUT);
+		nut->MouseDown(0, 0, 2);
+		runner.Check(board->GetTopPlantAt(2, 2, TOPPLANT_ANY) == support && !support->mDead &&
+			PlantDrawHeightOffset(board, nut, SEED_WALLNUT, 2, 2) == 0, "Launch leaves support behind and detaches its draw offset");
+		const int x = nut->mX;
+		for (int tick = 0; tick < 30; ++tick) nut->Update();
+		runner.Check(nut->mX > x && nut->mY == static_cast<int>(board->GetPosYBasedOnRow(nut->mX, 2)),
+			"Straight bowling follows pool surface or roof slope");
+		const PlantID id = static_cast<PlantID>(board->mPlants.DataArrayGetID(nut));
+		for (PlantState state : {STATE_BOWLING_STRAIGHT, STATE_BOWLING_DOWN})
+		{
+			nut->mState = state;
+			const std::string path = app.mCustomSaveDir + "/bowling-test.dat";
+			board->mLastClickedPlantID = id;
+			runner.Check(LawnSaveGame(board, path), "Save bowling state and animation");
+			app.MakeNewBoard();
+			board = app.mBoard;
+			const bool loaded = LawnLoadGame(board, path);
+			runner.Check(loaded, "Load bowling state and animation");
+			nut = loaded ? board->mPlants.DataArrayTryToGet(static_cast<unsigned int>(id)) : nullptr;
+			runner.Check(nut && nut->IsBowling() && nut->mState == state && board->mLastClickedPlantID == PlantID::PLANTID_NULL,
+				"Straight and bounced nuts persist, click history does not");
+			if (!nut) break;
+			const int before = nut->mX;
+			nut->Update();
+			runner.Check(nut->mX > before, "Loaded nut continues rolling");
+		}
+		if (nut)
+		{
+			for (int row : {0, bottom})
+			{
+				nut->mRow = row;
+				nut->mState = row == 0 ? STATE_BOWLING_UP : STATE_BOWLING_DOWN;
+				nut->mY = static_cast<int>(board->GetPosYBasedOnRow(nut->mX, row));
+				nut->UpdateBowling();
+				runner.Check(nut->mRow == (row == 0 ? 1 : bottom - 1), "Bowling bounces within actual terrain row count");
+			}
+		}
+	}
+	ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING = saved;
+	runner.Finish();
 }
 
 template<bool enabled>
@@ -909,11 +1159,16 @@ void UpdateBurst(UnitTestRunner& runner, Board& board)
 
 void RegisterLawnTests(UnitTestRunner& runner)
 {
+	runner.Register({"wallnut double vase cards", SetupWallnutVases<true>, nullptr, nullptr, 1});
+	runner.Register({"wallnut single vase card when disabled", SetupWallnutVases<false>, nullptr, nullptr, 1});
+	runner.Register({"wallnut double-click input and movement", SetupWallnutInput, nullptr, nullptr, 1});
+	runner.Register({"global bowling giant damage", SetupBowlingDamage, nullptr, nullptr, 1});
+	runner.Register({"bowling terrain and persistence", SetupBowlingTerrainAndSave, nullptr, nullptr, 1});
 	runner.Register({"squash enhancement", SetupSquash<true>, nullptr, nullptr, 1});
 	runner.Register({"squash enhancement disabled", SetupSquash<false>, nullptr, nullptr, 1});
 	runner.Register({"vase endless stage cooldowns", SetupVaseCooldowns, nullptr, nullptr, 1});
-	runner.Register({"threepeater mixed lanes and in-flight acquisition", SetupThreepeater<false>, UpdateThreepeater<false>, ThreepeaterShot, 650});
-	runner.Register({"threepeater Torchwood homing", SetupThreepeater<true>, UpdateThreepeater<true>, nullptr, 650});
+	runner.Register({"threepeater mixed lanes and in-flight acquisition", SetupThreepeater<false>, UpdateThreepeater<false>, ThreepeaterShot, 650, 2});
+	runner.Register({"threepeater Torchwood homing", SetupThreepeater<true>, UpdateThreepeater<true>, nullptr, 650, 2});
 	runner.Register({"threepeater scope and persistence", SetupThreepeaterScope, nullptr, nullptr, 1});
 	runner.Register({"fire pea alignment", SetupFirePeaAlignment, nullptr, nullptr, 1});
 	runner.Register({"empowered peashooter", SetupEmpowered<true>, UpdateEmpowered<true>, nullptr, 1100});

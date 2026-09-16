@@ -58,15 +58,17 @@ void UnitTestRunner::Start(LawnApp& app)
 
 void UnitTestRunner::Update(Board& board)
 {
-	if (mFinished) return;
-	++mTick;
-	board.mApp->mEffectSystem->Update();
-	board.UpdateGameObjects();
-	mCases[mIndex].update(*this, board);
-	if (!mFinished && mTick >= mCases[mIndex].timeoutTicks)
+	for (int step = 0; step < mCases[mIndex].ticksPerUpdate && !mFinished; ++step)
 	{
-		Check(false, "Case timed out");
-		Finish();
+		++mTick;
+		board.mApp->mEffectSystem->Update();
+		board.UpdateGameObjects();
+		mCases[mIndex].update(*this, board);
+		if (!mFinished && mTick >= mCases[mIndex].timeoutTicks)
+		{
+			Check(false, "Case timed out");
+			Finish();
+		}
 	}
 }
 

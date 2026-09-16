@@ -4373,6 +4373,8 @@ void Board::PickUpTool(GameObjectType theObjectType)
 void Board::MouseDown(int x, int y, int theClickCount)
 {
 	if (UnitTestRunner::active) return;
+	const PlantID lastClickedPlant = mLastClickedPlantID;
+	mLastClickedPlantID = PlantID::PLANTID_NULL;
 	UpdateMousePosition();
 	Widget::MouseDown(x, y, theClickCount);
 	mIgnoreMouseUp = !CanInteractWithBoardButtons();
@@ -4495,8 +4497,15 @@ void Board::MouseDown(int x, int y, int theClickCount)
 			PickUpTool(aHitResult.mObjectType);
 			break;
 		case GameObjectType::OBJECT_TYPE_PLANT:
-			((Plant*)aHitResult.mObject)->MouseDown(x, y, theClickCount);
+		{
+			Plant* plant = (Plant*)aHitResult.mObject;
+			const PlantID id = static_cast<PlantID>(mPlants.DataArrayGetID(plant));
+			// A planting/tool/card click must not count as the first click on a nut.
+			if (aCursor == CursorType::CURSOR_TYPE_NORMAL && !mPaused && theClickCount == 1)
+				mLastClickedPlantID = id;
+			plant->MouseDown(x, y, theClickCount == 2 && lastClickedPlant != id ? 1 : theClickCount);
 			break;
+		}
 		default:
 			break;
 		}
@@ -4507,6 +4516,7 @@ void Board::MouseDown(int x, int y, int theClickCount)
 
 void Board::ClearCursor()
 {
+	mLastClickedPlantID = PlantID::PLANTID_NULL;
 	if (mAdvice->mDuration > 0)
 	{
 		if (mHelpIndex == AdviceType::ADVICE_PLANT_GRAVEBUSTERS_ON_GRAVES ||

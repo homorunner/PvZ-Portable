@@ -248,6 +248,7 @@ public:
 	uint32_t						mDiamondsCollected;										//+0x57CC
 	uint32_t						mPottedPlantsCollected;
 	uint32_t						mChocolateCollected;
+	PlantID                         mLastClickedPlantID = PlantID::PLANTID_NULL;
 
 public:
 	Board(LawnApp* theApp);
