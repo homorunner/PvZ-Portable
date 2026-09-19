@@ -960,7 +960,7 @@ void Plant::FireLeftpeaterPlantingBurstShot()
 void Plant::UpdateShooter()
 {
 	// UpdateAbilities decrements this timer first; match Gatling's 17/16/17-tick spacing.
-	if (ENABLE_LEFTPEATER_PLANTING_BURST &&
+	if (mBoard->IsUpgradeEnabled(RogueUpgrade::LeftpeaterBurst) &&
 		mSeedType == SeedType::SEED_LEFTPEATER && mStateCountdown > 0)
 	{
 		if (mStateCountdown == 34 || mStateCountdown == 18 || mStateCountdown == 1)
@@ -1431,7 +1431,7 @@ void Plant::UpdateTorchwood()
 
 void Plant::UpdatePlantern()
 {
-	if (!ENABLE_PLANTERN_HEALING || mDead || mPlantHealth <= 0)
+	if (!mBoard->IsUpgradeEnabled(RogueUpgrade::PlanternHealing) || mDead || mPlantHealth <= 0)
 		return;
 
 	// Heal once per second of simulation time.
@@ -1461,7 +1461,7 @@ void Plant::DoSquashDamage()
 {
 	int aDamageRangeFlags = GetDamageRangeFlags(PlantWeapon::WEAPON_PRIMARY);
 	Rect aAttackRect = GetPlantAttackRect(PlantWeapon::WEAPON_PRIMARY);
-	const float padding = ENABLE_SQUASH_ENHANCEMENT ? 2.5f : 0.0f;
+	const float padding = mBoard->IsUpgradeEnabled(RogueUpgrade::SquashEnhancement) ? 2.5f : 0.0f;
 
 	for (Zombie* aZombie : mBoard->mZombies)
 	{
@@ -1610,7 +1610,7 @@ void Plant::UpdateSquash()
 
 			if (mStateCountdown == 0)
 			{
-				if (ENABLE_SQUASH_ENHANCEMENT)
+				if (mBoard->IsUpgradeEnabled(RogueUpgrade::SquashEnhancement))
 				{
 					for (Zombie* zombie : mBoard->mZombies)
 						zombie->ApplyStun(50);
@@ -4272,7 +4272,7 @@ void Plant::MouseDown(int x, int y, int theClickCount)
 	if (theClickCount < 0)
 		return;
 
-	if (ENABLE_WALLNUT_DOUBLE_CLICK_BOWLING && theClickCount == 2 && mSeedType == SeedType::SEED_WALLNUT &&
+	if (mBoard && mBoard->IsUpgradeEnabled(RogueUpgrade::WallnutBowling) && theClickCount == 2 && mSeedType == SeedType::SEED_WALLNUT &&
 		IsInPlay() && !mApp->IsIZombieLevel() && !IsBowling() && !NotOnGround() && mPlantHealth > 0 && !mIsAsleep &&
 		mOnBungeeState == PlantOnBungeeState::NOT_ON_BUNGEE && mApp->mGameScene == GameScenes::SCENE_PLAYING &&
 		!mBoard->mPaused && mBoard->mBoardFadeOutCounter < 0 && mBoard->mTimeStopCounter == 0 &&
@@ -4794,7 +4794,7 @@ void Plant::Fire(Zombie* theTargetZombie, int theRow, PlantWeapon thePlantWeapon
 	if (mSeedType == SeedType::SEED_PEASHOOTER)
 	{
 		mPeashooterShotCount = (mPeashooterShotCount + 1) % 3;
-		aProjectile->mEmpoweredPea = ENABLE_PEASHOOTER_EMPOWERED_PEA && mPeashooterShotCount == 0;
+		aProjectile->mEmpoweredPea = mBoard->IsUpgradeEnabled(RogueUpgrade::EmpoweredPea) && mPeashooterShotCount == 0;
 	}
 
 	if (mSeedType == SeedType::SEED_CABBAGEPULT || mSeedType == SeedType::SEED_KERNELPULT ||

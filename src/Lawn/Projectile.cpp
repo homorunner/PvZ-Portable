@@ -641,7 +641,7 @@ void Projectile::UpdateLobMotion()
 
 void Projectile::UpdateNormalMotion()
 {
-	if (mMotionType == ProjectileMotion::MOTION_THREEPEATER && ENABLE_THREEPEATER_HOMING)
+	if (mMotionType == ProjectileMotion::MOTION_THREEPEATER && mBoard->IsUpgradeEnabled(RogueUpgrade::ThreepeaterHoming))
 	{
 		// mRow is the assigned firing lane until homing starts, even during fan-out.
 		bool aRowOccupied = false;

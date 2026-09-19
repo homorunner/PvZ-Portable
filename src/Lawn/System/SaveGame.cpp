@@ -89,10 +89,13 @@ enum SaveChunkTypeV4
 	SAVE4_CHUNK_SEEDBANK = 17,
 	SAVE4_CHUNK_SEEDPACKETS = 18,
 	SAVE4_CHUNK_CHALLENGE = 19,
-	SAVE4_CHUNK_MUSIC = 20
+	SAVE4_CHUNK_MUSIC = 20,
+	SAVE4_CHUNK_ROGUE_RUN = 21
 };
 
 static constexpr const uint32_t SAVE4_CHUNK_VERSION = 1U;
+static constexpr const uint32_t SAVE4_ROGUE_SCHEMA = 1U;
+static constexpr const uint32_t SAVE4_ROGUE_DATA_SIZE = 25U;
 
 static void AppendU32LE(std::vector<unsigned char>& theOut, uint32_t theValue)
 {
@@ -2037,6 +2040,23 @@ static ChunkSyncFn GetChunkSyncFn(uint32_t theChunkType)
 
 static bool WriteChunkV4(std::vector<unsigned char>& thePayload, uint32_t theChunkType, Board* theBoard)
 {
+	if (theChunkType == SAVE4_CHUNK_ROGUE_RUN)
+	{
+		const RogueRun& aRun = theBoard->mRogueRun;
+		std::vector<unsigned char> aChunk;
+		AppendU32LE(aChunk, SAVE4_CHUNK_VERSION);
+		AppendU32LE(aChunk, 1U);
+		AppendU32LE(aChunk, SAVE4_ROGUE_DATA_SIZE);
+		AppendU32LE(aChunk, SAVE4_ROGUE_SCHEMA);
+		aChunk.push_back(aRun.active ? 1 : 0);
+		AppendU32LE(aChunk, aRun.unlocked);
+		AppendU32LE(aChunk, static_cast<uint32_t>(aRun.phase));
+		for (int32_t aOffer : aRun.offers)
+			AppendU32LE(aChunk, static_cast<uint32_t>(aOffer));
+		AppendChunk(thePayload, theChunkType, aChunk);
+		return true;
+	}
+
 	ChunkSyncFn aSyncFn = GetChunkSyncFn(theChunkType);
 	if (!aSyncFn)
 		return true;
@@ -2060,6 +2080,53 @@ static bool WriteChunkV4(std::vector<unsigned char>& thePayload, uint32_t theChu
 	memcpy(aChunk.data(), aChunkWriter.GetDataPtr(), aChunkWriter.GetDataLen());
 	AppendChunk(thePayload, theChunkType, aChunk);
 	return true;
+}
+
+static bool ReadRogueRunChunkV4(const unsigned char* theData, size_t theSize, RogueRun& theRun)
+{
+	// Schema 1 has exactly one data field, with no nested TLV or trailing bytes.
+	if (theSize != 12U + SAVE4_ROGUE_DATA_SIZE)
+		return false;
+	TLVReader aReader(theData, theSize);
+	uint32_t aVersion = 0;
+	uint32_t aFieldId = 0;
+	uint32_t aFieldSize = 0;
+	uint32_t aSchema = 0;
+	const unsigned char* aActive = nullptr;
+	uint32_t aPhase = 0;
+	RogueRun aRun;
+	if (!aReader.ReadU32(aVersion) || aVersion != SAVE4_CHUNK_VERSION ||
+		!aReader.ReadU32(aFieldId) || aFieldId != 1U ||
+		!aReader.ReadU32(aFieldSize) || aFieldSize != SAVE4_ROGUE_DATA_SIZE ||
+		!aReader.ReadU32(aSchema) || aSchema != SAVE4_ROGUE_SCHEMA ||
+		!aReader.ReadBytes(aActive, 1) || *aActive > 1 ||
+		!aReader.ReadU32(aRun.unlocked) || !aReader.ReadU32(aPhase) ||
+		aPhase >= static_cast<uint32_t>(RoguePhase::Ended))
+		return false;
+	aRun.active = *aActive != 0;
+	aRun.phase = static_cast<RoguePhase>(aPhase);
+	for (int32_t& aOffer : aRun.offers)
+	{
+		uint32_t aValue = 0;
+		if (!aReader.ReadU32(aValue))
+			return false;
+		aOffer = static_cast<int32_t>(aValue);
+	}
+	if (!aReader.mOk || aReader.mPos != aReader.mSize || !aRun.IsValid())
+		return false;
+	theRun = aRun;
+	return true;
+}
+
+static bool IsRogueRunSaveValid(const RogueRun& theRun, Board* theBoard)
+{
+	if (!theRun.IsValid() || theRun.phase == RoguePhase::Ended ||
+		theRun.active != LawnApp::IsEndlessScaryPotter(theBoard->mApp->mGameMode))
+		return false;
+	if (!theRun.active)
+		return true;
+	return theRun.phase == RoguePhase::Advancing ? theBoard->mNextSurvivalStageCounter > 0 :
+		theBoard->mNextSurvivalStageCounter == 0;
 }
 
 static bool ReadChunkV4(uint32_t theChunkType, const unsigned char* theData, size_t theSize, Board* theBoard)
@@ -2290,6 +2357,29 @@ static bool LawnLoadGameV4(Board* theBoard, const std::string& theFilePath)
 	if (aCrc != aHeader.mPayloadCrc)
 		return false;
 
+	// Reject pre-roguelike and malformed run saves before any chunk mutates the board.
+	const bool aEndless = LawnApp::IsEndlessScaryPotter(theBoard->mApp->mGameMode);
+	RogueRun aRun;
+	bool aRunFound = false;
+	TLVReader aScan(aPayload, aHeader.mPayloadSize);
+	while (aScan.mPos < aScan.mSize)
+	{
+		uint32_t aChunkType = 0;
+		uint32_t aChunkSize = 0;
+		const unsigned char* aChunkData = nullptr;
+		if (!aScan.ReadU32(aChunkType) || !aScan.ReadU32(aChunkSize) ||
+			!aScan.ReadBytes(aChunkData, aChunkSize))
+			return false;
+		if (aChunkType == SAVE4_CHUNK_ROGUE_RUN)
+		{
+			if (aRunFound || !ReadRogueRunChunkV4(aChunkData, aChunkSize, aRun) || aRun.active != aEndless)
+				return false;
+			aRunFound = true;
+		}
+	}
+	if (aEndless && !aRunFound)
+		return false;
+
 	TLVReader aReader(aPayload, aHeader.mPayloadSize);
 	bool aBaseLoaded = false;
 	while (aReader.mOk && aReader.mPos < aReader.mSize)
@@ -2308,9 +2398,10 @@ static bool LawnLoadGameV4(Board* theBoard, const std::string& theFilePath)
 			aBaseLoaded = true;
 	}
 
-	if (!aBaseLoaded)
+	if (!aBaseLoaded || !IsRogueRunSaveValid(aRun, theBoard))
 		return false;
 
+	theBoard->mRogueRun = aRun;
 	FixBoardAfterLoad(theBoard);
 	theBoard->mApp->mGameScene = GameScenes::SCENE_PLAYING;
 	return true;
@@ -2808,6 +2899,8 @@ bool LawnLoadGame(Board* theBoard, const std::string& theFilePath)
 		PvzpLogLn("Loaded save game (v4)");
 		return true;
 	}
+	if (LawnApp::IsEndlessScaryPotter(theBoard->mApp->mGameMode))
+		return false;
 
 	SaveGameContext aContext;
 	aContext.mFailed = false;
@@ -2838,6 +2931,8 @@ bool LawnLoadGame(Board* theBoard, const std::string& theFilePath)
 
 bool LawnSaveGame(Board* theBoard, const std::string& theFilePath)
 {
+	if (!IsRogueRunSaveValid(theBoard->mRogueRun, theBoard))
+		return false;
 	std::vector<unsigned char> aPayload;
 	if (!WriteChunkV4(aPayload, SAVE4_CHUNK_BOARD_BASE, theBoard)) return false;
 	if (!WriteChunkV4(aPayload, SAVE4_CHUNK_ZOMBIES, theBoard)) return false;
@@ -2859,6 +2954,7 @@ bool LawnSaveGame(Board* theBoard, const std::string& theFilePath)
 	if (!WriteChunkV4(aPayload, SAVE4_CHUNK_SEEDPACKETS, theBoard)) return false;
 	if (!WriteChunkV4(aPayload, SAVE4_CHUNK_CHALLENGE, theBoard)) return false;
 	if (!WriteChunkV4(aPayload, SAVE4_CHUNK_MUSIC, theBoard)) return false;
+	if (theBoard->mRogueRun.active && !WriteChunkV4(aPayload, SAVE4_CHUNK_ROGUE_RUN, theBoard)) return false;
 
 	SaveFileHeaderV4 aHeader{};
 	memcpy(aHeader.mMagic, SAVE_FILE_MAGIC_V4, sizeof(aHeader.mMagic));

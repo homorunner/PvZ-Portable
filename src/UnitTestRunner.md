@@ -322,3 +322,43 @@ up/down states, all serialized by the existing plant tail. Existing state
 numbers and plant layouts are unchanged. The legacy Board byte span is frozen
 at its original aligned end; click history is never restored. Tests exercise
 portable saves, not an archived legacy binary fixture or visual appearance.
+
+## Roguelike Runs
+
+New Endless Vasebreaker boards now start with all eight upgrades locked.
+`Board::IsUpgradeEnabled` reads this board's unlock mask; the standalone
+`ENABLE_*` globals continue to control other modes and isolated ability tests.
+The fixed 600 bowling damage against Gargantuars remains global, not an upgrade.
+
+Every cleared stage drops a moneybag, replacing the old every-ten-stage award
+schedule. Only collecting it rolls the offer. Offers contain up to three distinct
+locked upgrades; unchosen upgrades remain eligible later. With two or one locked
+upgrades, all remaining choices are shown. Once all eight are unlocked, bag
+collection continues to advance stages without an empty selection screen.
+
+Run phases are `Playing -> Reward -> Choosing -> Advancing -> Playing`, with
+`Ended` on loss. The existing puzzle cleanup/population path runs once after a
+valid choice, retaining unlocks and refreshing seed cooldowns. Selection freezes
+gameplay before the modal is even created. Repeated pickup, repeated completion,
+and duplicate UI events cannot reroll, pay twice, or grant another upgrade.
+New/restarted boards reset the run; losing invalidates the run checkpoint.
+
+`RogueUpgradeDialog` reuses the game's tiled dialog shell, seed artwork and fonts,
+with drawn parchment cards. Mouse release over the pressed card, number keys
+1-3, or arrows followed by Enter/Space select an upgrade. Escape cannot skip a
+reward. Localization keys use `ROGUE_*`, with English fallbacks for the supplied
+bitmap fonts. Closing the application uses the existing save-on-shutdown path.
+
+New SAVE4 chunk 21 (version 1, data field 1) stores schema 1, active flag, unlock
+mask, phase and the ordered three offer IDs. Loading preserves the exact offer,
+then recreates the dialog after Continue closes. Validation rejects invalid
+masks, phases, duplicate/owned offers, malformed or duplicate run chunks, and
+phase/countdown mismatches. Pre-roguelike endless saves are deliberately rejected;
+no migration is provided. Non-endless saves keep their existing behavior.
+
+Eight new cases in `RogueTestCases.cpp` cover all 256 unlock masks, real scoped
+effects, twelve consecutive stage rewards (including pool exhaustion), all four
+resumable phases, malformed saves, production input/update gates, actual modal
+focus and selection, and death/restart. They are appended so tests 09 and 10
+retain their numbering and 2x playback. The last case leaves a read-only version
+of the real three-card dialog visible during the five-second final hold.

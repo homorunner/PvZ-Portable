@@ -3779,7 +3779,7 @@ void Challenge::ScaryPotterChangePotType(GridItemState thePotType, int theCount)
 		}
 	}
 	theCount = std::min(theCount, aPotCount);
-	if (ENABLE_PLANTERN_GREEN_VASE && thePotType == GRIDITEM_STATE_SCARY_POT_LEAF && theCount > 0)
+	if (mBoard->IsUpgradeEnabled(RogueUpgrade::PlanternGreenVase) && thePotType == GRIDITEM_STATE_SCARY_POT_LEAF && theCount > 0)
 	{
 		// Reserve one green vase for the existing Plantern, without adding vases.
 		for (int i = 0; i < aPotCount; i++)
@@ -4110,6 +4110,15 @@ int Challenge::PuzzleIsAwardStage()
 
 void Challenge::PuzzlePhaseComplete(int theGridX, int theGridY)
 {
+	if (mBoard->mRogueRun.active)
+	{
+		if (mBoard->mRogueRun.phase != RoguePhase::Playing) return;
+		mBoard->mRogueRun.phase = RoguePhase::Reward;
+		mBoard->mLevelAwardSpawned = true;
+		mBoard->AddCoin(mBoard->GridToPixelX(theGridX, theGridY) + 40,
+			mBoard->GridToPixelY(theGridX, theGridY) + 40, COIN_AWARD_MONEY_BAG, COIN_MOTION_COIN);
+		return;
+	}
 	if (PuzzleIsAwardStage())
 	{
 		CoinType aCoinType;
@@ -4150,7 +4159,7 @@ void Challenge::ScaryPotterOpenPot(GridItem* theScaryPot)
 	{
 	case SCARYPOT_SEED:
 		mBoard->AddCoin(aXPos + 20, aYPos, COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_PLANT)->mUsableSeedType = theScaryPot->mSeedType;
-		if (ENABLE_WALLNUT_DOUBLE_VASE_CARDS && theScaryPot->mSeedType == SEED_WALLNUT)
+		if (mBoard->IsUpgradeEnabled(RogueUpgrade::DoubleWallnutCards) && theScaryPot->mSeedType == SEED_WALLNUT)
 			mBoard->AddCoin(aXPos + 60, aYPos, COIN_USABLE_SEED_PACKET, COIN_MOTION_FROM_PLANT)->mUsableSeedType = SEED_WALLNUT;
 		break;
 	case SCARYPOT_ZOMBIE:

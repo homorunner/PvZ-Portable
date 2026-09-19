@@ -30,6 +30,7 @@
 #include "System/SaveGame.h"
 #include "UnitTestRunner.h"
 #include "Widget/LawnDialog.h"
+#include "Widget/RogueUpgradeDialog.h"
 #include "System/PlayerInfo.h"
 #include "System/PoolEffect.h"
 #include "System/TypingCheck.h"
@@ -74,6 +75,7 @@ Board::Board(LawnApp* theApp)
 {
 	mApp = theApp;
 	mApp->mBoard = this;
+	mRogueRun.active = LawnApp::IsEndlessScaryPotter(mApp->mGameMode);
 
 	mZombies.DataArrayInitialize(1024U, "zombies");
 	mPlants.DataArrayInitialize(1024U, "plants");
@@ -338,6 +340,7 @@ void Board::TryToSaveGame()
 bool Board::NeedSaveGame()
 {
 	return
+		(!mRogueRun.active || mRogueRun.phase != RoguePhase::Ended) &&
 		mApp->mGameMode != GameMode::GAMEMODE_CHALLENGE_ICE &&
 		mApp->mGameMode != GameMode::GAMEMODE_UPSELL &&
 		mApp->mGameMode != GameMode::GAMEMODE_INTRO &&
@@ -1678,6 +1681,8 @@ LawnMower* Board::GetBottomLawnMower()
 
 void Board::UpdateLevelEndSequence()
 {
+	if (mRogueRun.active && mRogueRun.phase != RoguePhase::Advancing)
+		return;
 	if (mNextSurvivalStageCounter > 0)
 	{
 		if (!IsScaryPotterDaveTalking())
@@ -1708,6 +1713,7 @@ void Board::UpdateLevelEndSequence()
 				{
 					mChallenge->PuzzleNextStageClear();
 					mChallenge->ScaryPotterPopulate();
+					if (mRogueRun.active) mRogueRun.phase = RoguePhase::Playing;
 				}
 			}
 			else if (LawnApp::IsEndlessIZombie(mApp->mGameMode))
@@ -1809,6 +1815,11 @@ void Board::CompleteEndLevelSequenceForSaving()
 
 void Board::FadeOutLevel()
 {
+	if (mRogueRun.active)
+	{
+		if (mRogueRun.phase == RoguePhase::Reward) mRogueRun.RollOffers();
+		if (mRogueRun.phase != RoguePhase::Advancing || mNextSurvivalStageCounter > 0) return;
+	}
 	if (mApp->mGameScene != GameScenes::SCENE_PLAYING)
 	{
 		RefreshSeedPacketFromCursor();
@@ -1844,7 +1855,7 @@ void Board::FadeOutLevel()
 
 	if (mApp->IsScaryPotterLevel() && !IsFinalScaryPotterStage())
 	{
-		mNextSurvivalStageCounter = 500;
+		mNextSurvivalStageCounter = mRogueRun.active ? 100 : 500;
 		if (mApp->IsAdventureMode())
 		{
 			ClearAdvice(AdviceType::ADVICE_NONE);
@@ -2107,7 +2118,7 @@ Plant* Board::AddPlant(int theGridX, int theGridY, SeedType theSeedType, SeedTyp
 		mMushroomsUsed = true;
 	}
 
-	if (ENABLE_LEFTPEATER_PLANTING_BURST &&
+	if (IsUpgradeEnabled(RogueUpgrade::LeftpeaterBurst) &&
 		aPlant->mSeedType == SeedType::SEED_LEFTPEATER && aPlant->IsInPlay())
 	{
 		aPlant->FireLeftpeaterPlantingBurstShot();
@@ -4373,6 +4384,7 @@ void Board::PickUpTool(GameObjectType theObjectType)
 void Board::MouseDown(int x, int y, int theClickCount)
 {
 	if (UnitTestRunner::active) return;
+	if (mRogueRun.active && mRogueRun.phase == RoguePhase::Choosing) return;
 	const PlantID lastClickedPlant = mLastClickedPlantID;
 	mLastClickedPlantID = PlantID::PLANTID_NULL;
 	UpdateMousePosition();
@@ -5072,6 +5084,13 @@ void Board::ZombiesWon(Zombie* theZombie)
 {
 	if (mApp->mGameScene == GameScenes::SCENE_ZOMBIES_WON)
 		return;
+	if (mRogueRun.active)
+	{
+		if (mRogueRun.phase == RoguePhase::Ended) return;
+		mRogueRun.phase = RoguePhase::Ended;
+		mRogueRun.offers.fill(-1);
+		mApp->EraseFile(GetSavedGameName(mApp->mGameMode, mApp->mPlayerInfo->mId));
+	}
 
 	ClearAdvice(AdviceType::ADVICE_NONE);
 	mApp->mBoardResult = BoardResult::BOARDRESULT_LOST;
@@ -5725,6 +5744,12 @@ void Board::Update()
 		UnitTestRunner::active->Update(*this);
 		return;
 	}
+	if (mRogueRun.active && mRogueRun.phase == RoguePhase::Choosing)
+	{
+		mCursorPreview->mVisible = false;
+		mCursorObject->mVisible = false;
+		return;
+	}
 	mCutScene->Update();
 	UpdateMousePosition();
 	if (mApp->mGameMode == GameMode::GAMEMODE_CHALLENGE_ZEN_GARDEN)
@@ -5815,6 +5840,30 @@ void Board::Update()
 	UpdateLevelEndSequence();
 	mPrevMouseX = mApp->mWidgetManager->mLastMouseX;
 	mPrevMouseY = mApp->mWidgetManager->mLastMouseY;
+}
+
+bool Board::IsUpgradeEnabled(RogueUpgrade id) const
+{
+	return mRogueRun.active ? mRogueRun.IsUnlocked(id) : *GetRogueUpgrade(static_cast<int>(id)).toggle;
+}
+
+bool Board::ChooseRogueUpgrade(int slot)
+{
+	if (!mRogueRun.Choose(slot)) return false;
+	FadeOutLevel();
+	TryToSaveGame();
+	return true;
+}
+
+void Board::UpdateRogueDialog()
+{
+	if (!mRogueRun.active || mRogueRun.phase != RoguePhase::Choosing ||
+		mApp->mGameScene != GameScenes::SCENE_PLAYING || mApp->GetDialogCount() != 0 || mApp->mShutdown)
+		return;
+	RefreshSeedPacketFromCursor();
+	auto* dialog = new RogueUpgradeDialog(mApp);
+	mApp->AddDialog(dialog);
+	mApp->mWidgetManager->SetFocus(dialog);
 }
 
 void Board::UpdateLayers()

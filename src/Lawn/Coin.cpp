@@ -1045,6 +1045,9 @@ void Coin::Collect()
 {
 	if (mDead)
 		return;
+	if (mBoard && mBoard->mRogueRun.active && IsLevelAward() &&
+		(mIsBeingCollected || mBoard->mRogueRun.phase != RoguePhase::Reward))
+		return;
 
 	mCollectX = mPosX;
 	mCollectY = mPosY;

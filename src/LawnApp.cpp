@@ -252,6 +252,7 @@ void LawnApp::ShutdownHook()
 
 void LawnApp::KillBoard()
 {
+	KillDialog(DIALOG_ROGUE_UPGRADE);
 	FinishModelessDialogs();
 	KillSeedChooserScreen();
 	if (mBoard)
@@ -1601,7 +1602,11 @@ void LawnApp::UpdateFrames()
 			UnitTestRunner::active->AfterFrame(*this);
 			if (mShutdown) break;
 		}
-		else CheckForGameEnd();
+		else
+		{
+			if (mBoard) mBoard->UpdateRogueDialog();
+			CheckForGameEnd();
+		}
 	}
 }
 

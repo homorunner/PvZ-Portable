@@ -90,6 +90,7 @@ void SetupWallnutVases(UnitTestRunner& runner, LawnApp& app)
 	app.mGameMode = GAMEMODE_SCARY_POTTER_ENDLESS;
 	app.MakeNewBoard();
 	Board& board = *app.mBoard;
+	board.mRogueRun.active = false; // Exercise the individual toggle outside run progression.
 	board.InitLevel();
 	app.mGameScene = SCENE_PLAYING;
 	GridItem* nutVase = nullptr;
@@ -939,6 +940,7 @@ void SetupGreenVases(UnitTestRunner& runner, LawnApp& app)
 	app.mGameMode = GameMode::GAMEMODE_SCARY_POTTER_ENDLESS;
 	app.MakeNewBoard();
 	Board& board = *app.mBoard;
+	board.mRogueRun.active = false;
 	board.InitLevel();
 	app.mGameScene = GameScenes::SCENE_PLAYING;
 	board.mMouseVisible = false;
@@ -1181,4 +1183,5 @@ void RegisterLawnTests(UnitTestRunner& runner)
 	runner.Register({"plantern healing disabled", SetupHealing<false>, UpdateHealing<false>, nullptr, 250});
 	runner.Register({"plantern green vases", SetupGreenVases<true>, nullptr, nullptr, 1});
 	runner.Register({"plantern green vases disabled", SetupGreenVases<false>, nullptr, nullptr, 1});
+	RegisterRogueTests(runner);
 }

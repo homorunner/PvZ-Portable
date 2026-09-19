@@ -26,6 +26,7 @@
 #include <memory>
 
 #include "../ConstEnums.h"
+#include "RogueRun.h"
 #include "../PvzpLib/DataArray.h"
 #include "widget/Widget.h"
 #include "widget/ButtonListener.h"
@@ -249,6 +250,7 @@ public:
 	uint32_t						mPottedPlantsCollected;
 	uint32_t						mChocolateCollected;
 	PlantID                         mLastClickedPlantID = PlantID::PLANTID_NULL;
+	RogueRun                        mRogueRun;
 
 public:
 	Board(LawnApp* theApp);
@@ -264,6 +266,9 @@ public:
 	void					SaveGame(const std::string& theFileName);
 	bool							LoadGame(const std::string& theFileName);
 	void							InitLevel();
+	bool                            IsUpgradeEnabled(RogueUpgrade id) const;
+	bool                            ChooseRogueUpgrade(int slot);
+	void                            UpdateRogueDialog();
 	void							DisplayAdvice(std::string_view theAdvice, MessageStyle theMessageStyle, AdviceType theHelpIndex);
 	void							StartLevel();
 	Plant*							AddPlant(int theGridX, int theGridY, SeedType theSeedType, SeedType theImitaterType = SeedType::SEED_NONE);
